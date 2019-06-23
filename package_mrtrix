@@ -1,8 +1,8 @@
 #!/bin/bash
 cat <<EOF
 This script collates all the executables and runtime dependencies needed for
-MRtrix3, and creates a GZ compressed archive suitable for deployment on other
-systems. It takes all executables found in the bin/ folder and the MRtrix3
+MRtrix3Tissue, and creates a GZ compressed archive suitable for deployment on
+other systems. It takes all executables found in the bin/ folder and the mrtrix3
 library from the lib/ folder. It is up to the user to ./configure and ./build
 the software first.
 
@@ -26,24 +26,24 @@ echo -n "Press enter to proceed (or Ctrl-C to abort)..."
 read
 
 (
-  echo - collating MRtrix3 executables and library...
+  echo - collating MRtrix3Tissue executables and mrtrix3 library...
   set -e
-  mkdir -p _package/mrtrix3/
-  cp -r bin/ _package/mrtrix3/
-  cp -r lib/ _package/mrtrix3/ 
-  cp -r share/ _package/mrtrix3/ 
+  mkdir -p _package/MRtrix3Tissue/
+  cp -r bin/ _package/MRtrix3Tissue/
+  cp -r lib/ _package/MRtrix3Tissue/ 
+  cp -r share/ _package/MRtrix3Tissue/ 
 
   [ ${1:-"x"} == "-standalone" ] && (
-    cat > _package/mrtrix3/launcher <<"EOF"
+    cat > _package/MRtrix3Tissue/launcher <<"EOF"
 #!/bin/bash
 PREFIX="$(dirname $0)/.."
 COMMAND="$(basename $0)"
 "$PREFIX"/lib/ld-*.so* "$PREFIX"/exe/"$COMMAND" "$@"
 EOF
-    chmod a+x _package/mrtrix3/launcher
-    mkdir -p _package/mrtrix3/exe
+    chmod a+x _package/MRtrix3Tissue/launcher
+    mkdir -p _package/MRtrix3Tissue/exe
     (
-      cd _package/mrtrix3/bin
+      cd _package/MRtrix3Tissue/bin
       for n in *; do
       file $n | grep -q script || ( 
         mv $n ../exe
@@ -58,7 +58,7 @@ EOF
     for n in $LIBS; do
       if [ -e $n ]; then
         echo '        '$n;
-        cp $n _package/mrtrix3/lib/
+        cp $n _package/MRtrix3Tissue/lib/
       fi
     done
 
@@ -72,9 +72,9 @@ EOF
       echo '    additional libraries required for Qt:'
       for n in $QTLIBS; do echo '        '$n; done
 
-      cp $QTLIBS _package/mrtrix3/lib/
-      cp -r $QTPLUGDIR _package/mrtrix3/lib/
-      cat > _package/mrtrix3/lib/qt.conf << EOF
+      cp $QTLIBS _package/MRtrix3Tissue/lib/
+      cp -r $QTPLUGDIR _package/MRtrix3Tissue/lib/
+      cat > _package/MRtrix3Tissue/lib/qt.conf << EOF
 [Paths]
 Prefix = .
 EOF
@@ -86,16 +86,16 @@ EOF
 
 ) && cat <<EOF
 
-You can now copy the folder _package/mrtrix3 over to your target systems.
+You can now copy the folder _package/MRtrix3Tissue over to your target systems.
 For example packing it up using:
 
 $ cd _package
-$ tar cfz mrtrix3.tar.gz mrtrix3
+$ tar cfz MRtrix3Tissue.tar.gz MRtrix3Tissue
 
-On your target system, unpack mrtrix3.tar.gz using:
+On your target system, unpack MRtrix3Tissue.tar.gz using:
 
-$ tar xfz mrtrix3.tar.gz
+$ tar xfz MRtrix3Tissue.tar.gz
 
-You should also add the mrtrix3/bin to your PATH to finalise the installation.
+You should also add the MRtrix3Tissue/bin to your PATH to finalise the installation.
 EOF
 
