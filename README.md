@@ -1,5 +1,7 @@
 # MRtrix3Tissue
 
+MRtrix3Tissue is a fork of the MRtrix3 project. It adds capabilities for 3-Tissue CSD modelling and analysis to a complete and up-to-date version of MRtrix3.
+
 ## Quick install
 
 1. Install dependencies by whichever means your system uses. 
@@ -62,7 +64,7 @@
 
 You can build a particular release of MRtrix3Tissue by checking out the corresponding _tag_, and using the same procedure as above to build it:
 
-    git checkout 3.0_RC3
+    git checkout 3Tissue_v0.1.0
 
     ./configure
 
