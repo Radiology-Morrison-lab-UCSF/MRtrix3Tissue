@@ -1,13 +1,4 @@
-# MRtrix
-
-[![Build Status](https://travis-ci.org/MRtrix3/mrtrix3.svg?branch=updated_syntax)](https://travis-ci.org/MRtrix3/mrtrix3)
-
-Please visit the [official website for MRtrix](http://www.mrtrix.org) to access the [documentation for MRtrix3](http://mrtrix.readthedocs.org/), including detailed installation instructions.
-
-## Getting help
-
-Support and general discussion is hosted on the [MRtrix3 Community Forum](http://community.mrtrix.org/). Please
-address all MRtrix3-related queries there. You can use you GitHub or Google login to post questions.
+# MRtrix3Tissue
 
 ## Quick install
 
@@ -17,10 +8,13 @@ address all MRtrix3-related queries there. You can use you GitHub or Google logi
 
 2. Clone Git repository and compile:
 
-        $ git clone https://github.com/MRtrix3/mrtrix3.git
-        $ cd mrtrix3/
-        $ ./configure
-        $ ./build
+        git clone https://github.com/3Tissue/MRtrix3Tissue.git MRtrix3Tissue
+
+        cd MRtrix3Tissue
+
+        ./configure
+
+        ./build
 
 3. Set the `PATH`:
 
@@ -28,33 +22,34 @@ address all MRtrix3-related queries there. You can use you GitHub or Google logi
 
       run the `set_path` script provided:
 
-            $ ./set_path
+            ./set_path
 
       or edit the startup `~/.bashrc` or `/etc/bash.bashrc` file manually by adding this line:
 
-            $ export PATH=/<edit as appropriate>/mrtrix3/bin:$PATH
+            export PATH=/<edit as appropriate>/MRtrix3Tissue/bin:$PATH
 
     * C shell:
 
       edit the startup `~/.cshrc` or `/etc/csh.cshrc` file manually by adding this line:
 
-            $ setenv PATH /<edit as appropriate>/mrtrix3/bin:$PATH
+            setenv PATH /<edit as appropriate>/MRtrix3Tissue/bin:$PATH
 
 4. Test installation:
 
     Command-line:
 
-        $ mrconvert
+        mrinfo
 
     GUI:
 
-        $ mrview
+        mrview
 
-## Keeping MRtrix3 up to date
+## Keeping MRtrix3Tissue up to date
 
-1. You can update your installation at any time by opening a terminal in the mrtrix3 folder, and typing:
+1. You can update your installation at any time by opening a terminal in the MRtrix3Tissue folder, and typing:
 
         git pull
+
         ./build
 
 2. If this doesn't work immediately, it may be that you need to re-run the configure script:
@@ -63,10 +58,12 @@ address all MRtrix3-related queries there. You can use you GitHub or Google logi
 
     and re-run step 1 again.
 
-## Building a specific release of MRtrix3
+## Building a specific release of MRtrix3Tissue
 
-You can build a particular release of MRtrix3 by checking out the corresponding _tag_, and using the same procedure as above to build it:
+You can build a particular release of MRtrix3Tissue by checking out the corresponding _tag_, and using the same procedure as above to build it:
 
     git checkout 3.0_RC3
+
     ./configure
+
     ./build
