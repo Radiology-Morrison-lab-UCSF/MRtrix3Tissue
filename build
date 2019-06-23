@@ -7,9 +7,11 @@ USAGE
 
 DESCRIPTION
 
-    This script will compile and link the MRtrix3 source tree. It relies on the
-    configuration file produced by ./configure - please ensure you have run
-    this first.
+    This script will compile and link the MRtrix3Tissue source tree. It relies
+    on the configuration file produced by ./configure - please ensure you have
+    run this first.
+
+    MRtrix3Tissue is a fork of the MRtrix3 project.
 
     In most cases, a simple invocation is all that is required:
 
