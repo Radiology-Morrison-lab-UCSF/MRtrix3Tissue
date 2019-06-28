@@ -21,7 +21,7 @@ Usage
 Description
 -----------
 
-If no destination file is specified, the voxel locations will be printed to stdout.
+If no destination file is specified, the values will be printed to stdout.
 
 Options
 -------

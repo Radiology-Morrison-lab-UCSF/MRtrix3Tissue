@@ -32,8 +32,7 @@ void usage ()
   SYNOPSIS = "Print out the values within an image";
 
   DESCRIPTION
-  + "If no destination file is specified, the voxel locations will be "
-    "printed to stdout.";
+  + "If no destination file is specified, the values will be printed to stdout.";
 
   ARGUMENTS
   + Argument ("input",  "the input image.").type_image_in()
