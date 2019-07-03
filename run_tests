@@ -5,7 +5,7 @@ echo logging to \""$LOGFILE"\"
 
 cat > $LOGFILE <<EOD
 -------------------------------------------
-  Testing MRtrix3 installation
+  Testing MRtrix3Tissue installation
 -------------------------------------------
 
 EOD

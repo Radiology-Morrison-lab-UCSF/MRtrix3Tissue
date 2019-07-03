@@ -48,7 +48,7 @@ eval ${forcepyversion} pylint --version >> $LOGFILE
 cat >> $LOGFILE <<EOD
 
 -------------------------------------------
-  Testing MRtrix3 Python scripts
+  Testing MRtrix3Tissue Python scripts
 -------------------------------------------
 
 EOD
