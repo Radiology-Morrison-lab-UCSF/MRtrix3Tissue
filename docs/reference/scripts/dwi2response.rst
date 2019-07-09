@@ -15,7 +15,7 @@ Usage
 
     dwi2response algorithm [ options ] ...
 
--  *algorithm*: Select the algorithm to be used to complete the script operation; additional details and options become available once an algorithm is nominated. Options are: dhollander, fa, manual, msmt_5tt, tax, tournier
+-  *algorithm*: Select the algorithm to be used to complete the script operation; additional details and options become available once an algorithm is nominated. Options are: dholl_old, dhollander, fa, manual, msmt_5tt, tax, tournier
 
 Description
 -----------
@@ -93,6 +93,103 @@ particular purpose or non-infringing.
 See the Mozilla Public License v. 2.0 for more details.
 
 For more details, see http://www.mrtrix.org/.
+
+.. _dwi2response_dholl_old:
+
+dwi2response dholl_old
+======================
+
+Synopsis
+--------
+
+This is the OLD version of the Dhollander et al. (2016) algorithm for unsupervised estimation of WM, GM and CSF response functions. This version of the algorithm is deprecated and will disappear again in a future version of the software. Use "dwi2response dhollander" instead.
+
+Usage
+-----
+
+::
+
+    dwi2response dholl_old input out_sfwm out_gm out_csf [ options ]
+
+-  *input*: Input DWI dataset
+-  *out_sfwm*: Output single-fibre WM response function text file
+-  *out_gm*: Output GM response function text file
+-  *out_csf*: Output CSF response function text file
+
+Options
+-------
+
+Options for the 'dholl_old' algorithm
+^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+
+- **-erode** Number of erosion passes to apply to initial (whole brain) mask. Set to 0 to not erode the brain mask. (default: 3)
+
+- **-fa** FA threshold for crude WM versus GM-CSF separation. (default: 0.2)
+
+- **-sfwm** Final number of single-fibre WM voxels to select, as a percentage of refined WM. (default: 0.5 per cent)
+
+- **-gm** Final number of GM voxels to select, as a percentage of refined GM. (default: 2 per cent)
+
+- **-csf** Final number of CSF voxels to select, as a percentage of refined CSF. (default: 10 per cent)
+
+Options for importing the diffusion gradient table
+^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+
+- **-grad** Provide the diffusion gradient table in MRtrix format
+
+- **-fslgrad bvecs bvals** Provide the diffusion gradient table in FSL bvecs/bvals format
+
+General dwi2response options
+^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+
+- **-mask** Provide an initial mask for response voxel selection
+
+- **-voxels** Output an image showing the final voxel selection(s)
+
+- **-shells** The b-value(s) to use in response function estimation (comma-separated list in case of multiple b-values, b=0 must be included explicitly)
+
+- **-lmax** The maximum harmonic degree(s) for response function estimation (comma-separated list in case of multiple b-values)
+
+Additional standard options for Python scripts
+^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+
+- **-nocleanup** do not delete intermediate files during script execution, and do not delete scratch directory at script completion.
+
+- **-scratch /path/to/scratch/** manually specify the path in which to generate the scratch directory.
+
+- **-continue <ScratchDir> <LastFile>** continue the script from a previous execution; must provide the scratch directory path, and the name of the last successfully-generated file.
+
+Standard options
+^^^^^^^^^^^^^^^^
+
+- **-info** display information messages.
+
+- **-quiet** do not display information messages or progress status. Alternatively, this can be achieved by setting the MRTRIX_QUIET environment variable to a non-empty string.
+
+- **-debug** display debugging messages.
+
+- **-force** force overwrite of output files.
+
+- **-nthreads number** use this number of threads in multi-threaded applications (set to 0 to disable multi-threading).
+
+- **-config key value**  *(multiple uses permitted)* temporarily set the value of an MRtrix config file entry.
+
+- **-help** display this information page and exit.
+
+- **-version** display version information and exit.
+
+References
+^^^^^^^^^^
+
+* Dhollander, T.; Raffelt, D. & Connelly, A. Unsupervised 3-tissue response function estimation from single-shell or multi-shell diffusion MR data without a co-registered T1 image. ISMRM Workshop on Breaking the Barriers of Diffusion MRI, 2016, 5
+
+--------------
+
+
+
+**Author:** Thijs Dhollander (thijs.dhollander@gmail.com)
+
+**Copyright:** Copyright (c) 2019 Thijs Dhollander and The Florey Institute of Neuroscience and Mental Health, Melbourne, Australia. This Software is provided on an "as is" basis, without warranty of any kind, either expressed, implied, or statutory, including, without limitation, warranties that the Software is free of defects, merchantable, fit for a particular purpose or non-infringing.
 
 .. _dwi2response_dhollander:
 
@@ -191,20 +288,7 @@ References
 
 **Author:** Thijs Dhollander (thijs.dhollander@gmail.com)
 
-**Copyright:** Copyright (c) 2008-2019 the MRtrix3 contributors.
-
-This Source Code Form is subject to the terms of the Mozilla Public
-License, v. 2.0. If a copy of the MPL was not distributed with this
-file, You can obtain one at http://mozilla.org/MPL/2.0/.
-
-Covered Software is provided under this License on an "as is"
-basis, without warranty of any kind, either expressed, implied, or
-statutory, including, without limitation, warranties that the
-Covered Software is free of defects, merchantable, fit for a
-particular purpose or non-infringing.
-See the Mozilla Public License v. 2.0 for more details.
-
-For more details, see http://www.mrtrix.org/.
+**Copyright:** Copyright (c) 2019 Thijs Dhollander and The Florey Institute of Neuroscience and Mental Health, Melbourne, Australia. This Software is provided on an "as is" basis, without warranty of any kind, either expressed, implied, or statutory, including, without limitation, warranties that the Software is free of defects, merchantable, fit for a particular purpose or non-infringing.
 
 .. _dwi2response_fa:
 
