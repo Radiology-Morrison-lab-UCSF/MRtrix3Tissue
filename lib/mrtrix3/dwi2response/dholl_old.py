@@ -8,17 +8,16 @@
 # particular purpose or non-infringing.
 
 def usage(base_parser, subparsers): #pylint: disable=unused-variable
-  parser = subparsers.add_parser('dhollander', parents=[base_parser])
+  parser = subparsers.add_parser('dholl_old', parents=[base_parser])
   parser.set_author('Thijs Dhollander (thijs.dhollander@gmail.com)')
   parser.set_copyright('Copyright (c) 2019 Thijs Dhollander and The Florey Institute of Neuroscience and Mental Health, Melbourne, Australia. This Software is provided on an \"as is\" basis, without warranty of any kind, either expressed, implied, or statutory, including, without limitation, warranties that the Software is free of defects, merchantable, fit for a particular purpose or non-infringing.')
-  parser.set_synopsis('An improved version of the Dhollander et al. (2016) algorithm for unsupervised estimation of WM, GM and CSF response functions; does not require a T1 image (or segmentation thereof). This implementation includes the Dhollander et al. (2019) improvements for single-fibre WM response function estimation.')
+  parser.set_synopsis('This is the OLD version of the Dhollander et al. (2016) algorithm for unsupervised estimation of WM, GM and CSF response functions. This version of the algorithm is deprecated and will disappear again in a future version of the software. Use \"dwi2response dhollander\" instead.')
   parser.add_citation('Dhollander, T.; Raffelt, D. & Connelly, A. Unsupervised 3-tissue response function estimation from single-shell or multi-shell diffusion MR data without a co-registered T1 image. ISMRM Workshop on Breaking the Barriers of Diffusion MRI, 2016, 5')
-  parser.add_citation('Dhollander, T.; Mito, R.; Raffelt, D. & Connelly, A. Improved white matter response function estimation for 3-tissue constrained spherical deconvolution. Proc Intl Soc Mag Reson Med, 2019, 555')
   parser.add_argument('input', help='Input DWI dataset')
   parser.add_argument('out_sfwm', help='Output single-fibre WM response function text file')
   parser.add_argument('out_gm', help='Output GM response function text file')
   parser.add_argument('out_csf', help='Output CSF response function text file')
-  options = parser.add_argument_group('Options for the \'dhollander\' algorithm')
+  options = parser.add_argument_group('Options for the \'dholl_old\' algorithm')
   options.add_argument('-erode', type=int, default=3, help='Number of erosion passes to apply to initial (whole brain) mask. Set to 0 to not erode the brain mask. (default: 3)')
   options.add_argument('-fa', type=float, default=0.2, help='FA threshold for crude WM versus GM-CSF separation. (default: 0.2)')
   options.add_argument('-sfwm', type=float, default=0.5, help='Final number of single-fibre WM voxels to select, as a percentage of refined WM. (default: 0.5 per cent)')
@@ -211,36 +210,20 @@ def execute(): #pylint: disable=unused-variable
   app.console(' * Estimating response function...')
   run.command('amp2response dwi.mif voxels_gm.mif safe_vecs.mif response_gm.txt' + bvalues_option + ' -isotropic', show=False)
 
-  # Get final voxels for single-fibre WM response function estimation from refined WM.
+  # Get final voxels for single-fibre WM response function estimation from WM using TOURNIER algorithm.
   app.console('* single-fibre WM:')
   app.console(' * Selecting final voxels (' + str(app.ARGS.sfwm) + '% of refined WM)...')
   voxsfwmcount = int(round(statrefwmcount * app.ARGS.sfwm / 100.0))
-  run.command('mrmath dwi.mif mean mean_sig.mif -axis 3', show=False)
-  refwmcoef = image.statistic('mean_sig.mif', 'median', '-mask refined_wm.mif') * math.sqrt(4.0 * math.pi)
-  if sfwm_lmax:
-    isiso = [ lm == 0 for lm in sfwm_lmax ]
-  else:
-    isiso = [ bv < bzero_threshold for bv in bvalues ]
-  with open('ewmrf.txt', 'w') as ewr:
-    for iis in isiso:
-      if iis:
-        ewr.write("%s 0 0 0\n" % refwmcoef)
-      else:
-        ewr.write("%s -%s %s -%s\n" % (refwmcoef, refwmcoef, refwmcoef, refwmcoef))
-  run.command('dwi2fod msmt_csd dwi.mif ewmrf.txt abs_ewm2.mif response_csf.txt abs_csf2.mif -mask refined_wm.mif -lmax 2,0' + bvalues_option, show=False)
-  run.command('mrconvert abs_ewm2.mif - -coord 3 0 | mrcalc - abs_csf2.mif -add abs_sum2.mif', show=False)
-  run.command('sh2peaks abs_ewm2.mif - -num 1 -mask refined_wm.mif | peaks2amp - - | mrcalc - abs_sum2.mif -divide - | mrconvert - metric_sfwm2.mif -coord 3 0 -axes 0,1,2', show=False)
-  run.command('mrcalc refined_wm.mif metric_sfwm2.mif 0 -if - | mrthreshold - - -top ' + str(voxsfwmcount * 2) + ' -ignorezero | mrcalc refined_wm.mif - 0 -if - -datatype bit | mrconvert - refined_sfwm.mif -axes 0,1,2', show=False)
-  run.command('dwi2fod msmt_csd dwi.mif ewmrf.txt abs_ewm6.mif response_csf.txt abs_csf6.mif -mask refined_sfwm.mif -lmax 6,0' + bvalues_option, show=False)
-  run.command('mrconvert abs_ewm6.mif - -coord 3 0 | mrcalc - abs_csf6.mif -add abs_sum6.mif', show=False)
-  run.command('sh2peaks abs_ewm6.mif abs_peak_ewm6.mif -num 1 -mask refined_sfwm.mif', show=False)
-  run.command('peaks2amp abs_peak_ewm6.mif - | mrcalc - abs_sum6.mif -divide - | mrconvert - metric_sfwm6.mif -coord 3 0 -axes 0,1,2', show=False)
-  run.command('mrcalc refined_sfwm.mif metric_sfwm6.mif 0 -if - | mrthreshold - - -top ' + str(voxsfwmcount) + ' -ignorezero | mrcalc refined_sfwm.mif - 0 -if - -datatype bit | mrconvert - voxels_sfwm.mif -axes 0,1,2', show=False)
+  app.console('   Running TOURNIER algorithm to select ' + str(voxsfwmcount) + ' single-fibre WM voxels.')
+  cleanopt = ''
+  if not app.DO_CLEANUP:
+    cleanopt = ' -nocleanup'
+  run.command('dwi2response tournier dwi.mif _respsfwmss.txt -sf_voxels ' + str(voxsfwmcount) + ' -iter_voxels ' + str(voxsfwmcount * 10) + ' -mask refined_wm.mif -voxels voxels_sfwm.mif -scratch ' + path.quote(app.SCRATCH_DIR) + cleanopt, show=False)
   statvoxsfwmcount = image.statistic('voxels_sfwm.mif', 'count', '-mask voxels_sfwm.mif')
-  app.console('   [ WM: ' + str(statrefwmcount) + ' -> ' + str(statvoxsfwmcount) + ' (single-fibre) ]')
+  app.console('   [ WM: ' + str(statrefwmcount) + ' -> ' + str(statvoxsfwmcount) + ' (single-fibre by TOURNIER algorithm) ]')
   # Estimate SF WM response function
   app.console(' * Estimating response function...')
-  run.command('amp2response dwi.mif voxels_sfwm.mif abs_peak_ewm6.mif response_sfwm.txt' + bvalues_option + sfwm_lmax_option, show=False)
+  run.command('amp2response dwi.mif voxels_sfwm.mif safe_vecs.mif response_sfwm.txt' + bvalues_option + sfwm_lmax_option, show=False)
 
 
   # OUTPUT AND SUMMARY
