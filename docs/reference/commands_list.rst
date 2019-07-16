@@ -95,6 +95,7 @@ List of MRtrix3 commands
     commands/shbasis
     commands/shconv
     commands/shview
+    commands/ss3t_csd_beta1
     commands/tck2connectome
     commands/tck2fixel
     commands/tckconvert
@@ -217,6 +218,7 @@ List of MRtrix3 commands
     |cpp.png|, :ref:`shbasis`, "Examine the values in spherical harmonic images to estimate (and optionally change) the SH basis used"
     |cpp.png|, :ref:`shconv`, "Perform a spherical convolution"
     |cpp.png|, :ref:`shview`, "View spherical harmonics surface plots"
+    |python.png|, :ref:`ss3t_csd_beta1`, "SS3T-CSD: beta 1 implementation"
     |cpp.png|, :ref:`tck2connectome`, "Generate a connectome matrix from a streamlines file and a node parcellation image"
     |cpp.png|, :ref:`tck2fixel`, "Compute a fixel TDI map from a tractogram"
     |cpp.png|, :ref:`tckconvert`, "Convert between different track file formats"
