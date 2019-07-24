@@ -1,6 +1,6 @@
 # Copyright (c) 2019 Thijs Dhollander and The Florey Institute
 # of Neuroscience and Mental Health, Melbourne, Australia.
-# 
+#
 # This Software is provided on an "as is" basis, without
 # warranty of any kind, either expressed, implied, or
 # statutory, including, without limitation, warranties that

@@ -1,6 +1,6 @@
 # Copyright (c) 2019 Thijs Dhollander and The Florey Institute
 # of Neuroscience and Mental Health, Melbourne, Australia.
-# 
+#
 # This Software is provided on an "as is" basis, without
 # warranty of any kind, either expressed, implied, or
 # statutory, including, without limitation, warranties that
@@ -45,10 +45,8 @@ def needs_single_shell(): #pylint: disable=unused-variable
 
 
 def execute(): #pylint: disable=unused-variable
-  import math, shutil
-  from mrtrix3 import CONFIG, app, image, MRtrixError, path, run
-
-  bzero_threshold = float(CONFIG['BZeroThreshold']) if 'BZeroThreshold' in CONFIG else 10.0
+  import shutil
+  from mrtrix3 import app, image, MRtrixError, path, run
 
 
   # CHECK INPUTS AND OPTIONS
