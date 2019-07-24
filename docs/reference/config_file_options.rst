@@ -484,7 +484,7 @@ List of MRtrix3 configuration file options
 
 .. option:: ObjectColor
 
-    *default: 1,1,0 (yellow)*
+    *default: 0.26,0.52,0.96 (blue)*
 
      The default colour to use for objects (i.e. SH glyphs) when not
      colouring by direction.

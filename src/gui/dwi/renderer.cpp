@@ -43,10 +43,10 @@ namespace MR
           context_ (widget)
       {
         //CONF option: ObjectColor
-        //CONF default: 1,1,0 (yellow)
+        //CONF default: 0.26,0.52,0.96 (blue)
         //CONF The default colour to use for objects (i.e. SH glyphs) when not
         //CONF colouring by direction.
-        File::Config::get_RGB ("ObjectColor", object_color, 1.0, 1.0, 0.0);
+        File::Config::get_RGB ("ObjectColor", object_color, 0.26, 0.52, 0.96);
       }
 
 
