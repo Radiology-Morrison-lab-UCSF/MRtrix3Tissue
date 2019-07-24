@@ -64,7 +64,7 @@ MRtrix3Tissue is a fork of the MRtrix3 project. It adds capabilities for 3-Tissu
 
 You can build a particular release of MRtrix3Tissue by checking out the corresponding _tag_, and using the same procedure as above to build it:
 
-    git checkout 3Tissue_v2.1.1
+    git checkout 3Tissue_v2.2.0
 
     ./configure
 
