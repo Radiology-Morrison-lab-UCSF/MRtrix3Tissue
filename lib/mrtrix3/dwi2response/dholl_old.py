@@ -11,8 +11,9 @@ def usage(base_parser, subparsers): #pylint: disable=unused-variable
   parser = subparsers.add_parser('dholl_old', parents=[base_parser])
   parser.set_author('Thijs Dhollander (thijs.dhollander@gmail.com)')
   parser.set_copyright('Copyright (c) 2019 Thijs Dhollander and The Florey Institute of Neuroscience and Mental Health, Melbourne, Australia. This Software is provided on an \"as is\" basis, without warranty of any kind, either expressed, implied, or statutory, including, without limitation, warranties that the Software is free of defects, merchantable, fit for a particular purpose or non-infringing.')
-  parser.set_synopsis('This is the OLD version of the Dhollander et al. (2016) algorithm for unsupervised estimation of WM, GM and CSF response functions. This version of the algorithm is deprecated and will disappear again in a future version of the software. Use \"dwi2response dhollander\" instead.')
+  parser.set_synopsis('The OLD Dhollander et al. (2016) algorithm for unsupervised estimation of WM, GM and CSF response functions.')
   parser.add_citation('Dhollander, T.; Raffelt, D. & Connelly, A. Unsupervised 3-tissue response function estimation from single-shell or multi-shell diffusion MR data without a co-registered T1 image. ISMRM Workshop on Breaking the Barriers of Diffusion MRI, 2016, 5')
+  parser.add_description('This is the OLD version of the Dhollander et al. (2016) algorithm. This version of the algorithm is deprecated and will disappear again in a future version of the software. Use \"dwi2response dhollander\" instead, which runs the new and improved 2019 algorithm.')
   parser.add_argument('input', help='Input DWI dataset')
   parser.add_argument('out_sfwm', help='Output single-fibre WM response function text file')
   parser.add_argument('out_gm', help='Output GM response function text file')
@@ -45,8 +46,7 @@ def needs_single_shell(): #pylint: disable=unused-variable
 
 
 def execute(): #pylint: disable=unused-variable
-  import shutil
-  from mrtrix3 import app, image, MRtrixError, path, run
+  from mrtrix3 import app, image, matrix, MRtrixError, path, run
 
 
   # CHECK INPUTS AND OPTIONS
@@ -233,10 +233,11 @@ def execute(): #pylint: disable=unused-variable
   run.command('mrcat refined_csf.mif refined_gm.mif refined_wm.mif check_refined.mif -axis 3', show=False)
   run.command('mrcat voxels_csf.mif voxels_gm.mif voxels_sfwm.mif check_voxels.mif -axis 3', show=False)
 
-  # Copy results to output files
-  run.function(shutil.copyfile, 'response_sfwm.txt', path.from_user(app.ARGS.out_sfwm, False), show=False)
-  run.function(shutil.copyfile, 'response_gm.txt', path.from_user(app.ARGS.out_gm, False), show=False)
-  run.function(shutil.copyfile, 'response_csf.txt', path.from_user(app.ARGS.out_csf, False), show=False)
+  # Save results to output files
+  bvalhdr = { 'b-values' : ','.join(map(str,bvalues)) }
+  matrix.save_matrix(path.from_user(app.ARGS.out_sfwm, False), matrix.load_matrix('response_sfwm.txt'), header=bvalhdr, fmt='%.15g', footer={})
+  matrix.save_matrix(path.from_user(app.ARGS.out_gm, False), matrix.load_matrix('response_gm.txt'), header=bvalhdr, fmt='%.15g', footer={})
+  matrix.save_matrix(path.from_user(app.ARGS.out_csf, False), matrix.load_matrix('response_csf.txt'), header=bvalhdr, fmt='%.15g', footer={})
   if app.ARGS.voxels:
     run.command('mrconvert check_voxels.mif ' + path.from_user(app.ARGS.voxels), mrconvert_keyval=path.from_user(app.ARGS.input), force=app.FORCE_OVERWRITE, show=False)
   app.console('-------')

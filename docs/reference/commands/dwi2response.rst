@@ -102,7 +102,7 @@ dwi2response dholl_old
 Synopsis
 --------
 
-This is the OLD version of the Dhollander et al. (2016) algorithm for unsupervised estimation of WM, GM and CSF response functions. This version of the algorithm is deprecated and will disappear again in a future version of the software. Use "dwi2response dhollander" instead.
+The OLD Dhollander et al. (2016) algorithm for unsupervised estimation of WM, GM and CSF response functions.
 
 Usage
 -----
@@ -115,6 +115,11 @@ Usage
 -  *out_sfwm*: Output single-fibre WM response function text file
 -  *out_gm*: Output GM response function text file
 -  *out_csf*: Output CSF response function text file
+
+Description
+-----------
+
+This is the OLD version of the Dhollander et al. (2016) algorithm. This version of the algorithm is deprecated and will disappear again in a future version of the software. Use "dwi2response dhollander" instead, which runs the new and improved 2019 algorithm.
 
 Options
 -------
@@ -199,7 +204,7 @@ dwi2response dhollander
 Synopsis
 --------
 
-An improved version of the Dhollander et al. (2016) algorithm for unsupervised estimation of WM, GM and CSF response functions; does not require a T1 image (or segmentation thereof). This implementation includes the Dhollander et al. (2019) improvements for single-fibre WM response function estimation.
+The Dhollander et al. (2019) algorithm for unsupervised estimation of WM, GM and CSF response functions; does not require a T1 image (or segmentation thereof).
 
 Usage
 -----
@@ -212,6 +217,11 @@ Usage
 -  *out_sfwm*: Output single-fibre WM response function text file
 -  *out_gm*: Output GM response function text file
 -  *out_csf*: Output CSF response function text file
+
+Description
+-----------
+
+The Dhollander et al. (2019) algorithm is an improved version of the Dhollander et al. (2016) algorithm for unsupervised estimation of WM, GM and CSF response functions. It does not require a T1 image (or segmentation thereof). The 2019 algorithm introduces improvements for single-fibre WM response function estimation.
 
 Options
 -------

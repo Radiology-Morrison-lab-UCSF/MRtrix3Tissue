@@ -11,9 +11,10 @@ def usage(base_parser, subparsers): #pylint: disable=unused-variable
   parser = subparsers.add_parser('dhollander', parents=[base_parser])
   parser.set_author('Thijs Dhollander (thijs.dhollander@gmail.com)')
   parser.set_copyright('Copyright (c) 2019 Thijs Dhollander and The Florey Institute of Neuroscience and Mental Health, Melbourne, Australia. This Software is provided on an \"as is\" basis, without warranty of any kind, either expressed, implied, or statutory, including, without limitation, warranties that the Software is free of defects, merchantable, fit for a particular purpose or non-infringing.')
-  parser.set_synopsis('An improved version of the Dhollander et al. (2016) algorithm for unsupervised estimation of WM, GM and CSF response functions; does not require a T1 image (or segmentation thereof). This implementation includes the Dhollander et al. (2019) improvements for single-fibre WM response function estimation.')
+  parser.set_synopsis('The Dhollander et al. (2019) algorithm for unsupervised estimation of WM, GM and CSF response functions; does not require a T1 image (or segmentation thereof).')
   parser.add_citation('Dhollander, T.; Raffelt, D. & Connelly, A. Unsupervised 3-tissue response function estimation from single-shell or multi-shell diffusion MR data without a co-registered T1 image. ISMRM Workshop on Breaking the Barriers of Diffusion MRI, 2016, 5')
   parser.add_citation('Dhollander, T.; Mito, R.; Raffelt, D. & Connelly, A. Improved white matter response function estimation for 3-tissue constrained spherical deconvolution. Proc Intl Soc Mag Reson Med, 2019, 555')
+  parser.add_description('The Dhollander et al. (2019) algorithm is an improved version of the Dhollander et al. (2016) algorithm for unsupervised estimation of WM, GM and CSF response functions. It does not require a T1 image (or segmentation thereof). The 2019 algorithm introduces improvements for single-fibre WM response function estimation.')
   parser.add_argument('input', help='Input DWI dataset')
   parser.add_argument('out_sfwm', help='Output single-fibre WM response function text file')
   parser.add_argument('out_gm', help='Output GM response function text file')
@@ -46,8 +47,8 @@ def needs_single_shell(): #pylint: disable=unused-variable
 
 
 def execute(): #pylint: disable=unused-variable
-  import math, shutil
-  from mrtrix3 import CONFIG, app, image, MRtrixError, path, run
+  import math
+  from mrtrix3 import CONFIG, app, image, matrix, MRtrixError, path, run
 
   bzero_threshold = float(CONFIG['BZeroThreshold']) if 'BZeroThreshold' in CONFIG else 10.0
 
@@ -252,10 +253,11 @@ def execute(): #pylint: disable=unused-variable
   run.command('mrcat refined_csf.mif refined_gm.mif refined_wm.mif check_refined.mif -axis 3', show=False)
   run.command('mrcat voxels_csf.mif voxels_gm.mif voxels_sfwm.mif check_voxels.mif -axis 3', show=False)
 
-  # Copy results to output files
-  run.function(shutil.copyfile, 'response_sfwm.txt', path.from_user(app.ARGS.out_sfwm, False), show=False)
-  run.function(shutil.copyfile, 'response_gm.txt', path.from_user(app.ARGS.out_gm, False), show=False)
-  run.function(shutil.copyfile, 'response_csf.txt', path.from_user(app.ARGS.out_csf, False), show=False)
+  # Save results to output files
+  bvalhdr = { 'b-values' : ','.join(map(str,bvalues)) }
+  matrix.save_matrix(path.from_user(app.ARGS.out_sfwm, False), matrix.load_matrix('response_sfwm.txt'), header=bvalhdr, fmt='%.15g', footer={})
+  matrix.save_matrix(path.from_user(app.ARGS.out_gm, False), matrix.load_matrix('response_gm.txt'), header=bvalhdr, fmt='%.15g', footer={})
+  matrix.save_matrix(path.from_user(app.ARGS.out_csf, False), matrix.load_matrix('response_csf.txt'), header=bvalhdr, fmt='%.15g', footer={})
   if app.ARGS.voxels:
     run.command('mrconvert check_voxels.mif ' + path.from_user(app.ARGS.voxels), mrconvert_keyval=path.from_user(app.ARGS.input), force=app.FORCE_OVERWRITE, show=False)
   app.console('-------')
