@@ -1,0 +1,216 @@
+#!/usr/bin/env python
+
+# Copyright (c) 2019 Thijs Dhollander and The Florey Institute
+# of Neuroscience and Mental Health, Melbourne, Australia.
+#
+# This Software is provided on an "as is" basis, without
+# warranty of any kind, either expressed, implied, or
+# statutory, including, without limitation, warranties that
+# the Software is free of defects, merchantable, fit for a
+# particular purpose or non-infringing.
+
+def usage(cmdline): #pylint: disable=unused-variable
+  cmdline.set_author('Thijs Dhollander (thijs.dhollander@gmail.com)')
+  cmdline.set_copyright('Copyright (c) 2019 Thijs Dhollander and The Florey Institute of Neuroscience and Mental Health, Melbourne, Australia. This Software is provided on an \"as is\" basis, without warranty of any kind, either expressed, implied, or statutory, including, without limitation, warranties that the Software is free of defects, merchantable, fit for a particular purpose or non-infringing.')
+  cmdline.set_synopsis('SS3T-CSD: beta 1 implementation')
+  cmdline.add_citation('Dhollander, T. & Connelly, A. A novel iterative approach to reap the benefits of multi-tissue CSD from just single-shell (+b=0) diffusion MRI data. Proc Intl Soc Mag Reson Med, 2016, 3010')
+  cmdline.add_description('This is an implementation of SS3T-CSD for beta testing and distribution. Use with caution and check all results carefully.')
+  cmdline.add_description('For more information on how to use SS3T-CSD, please visit https://3Tissue.github.io/doc/ss3t-csd.html')
+  cmdline.add_argument('in_dMRI_data', help='Input dMRI dataset')
+  cmdline.add_argument('in_SFWM_resp', help='Input single-fibre WM response function text file')
+  cmdline.add_argument('out_WM_FOD', help='Output WM FOD image')
+  cmdline.add_argument('in_GM_resp', help='Input GM response function text file')
+  cmdline.add_argument('out_GM', help='Output GM image')
+  cmdline.add_argument('in_CSF_resp', help='Input CSF response function text file')
+  cmdline.add_argument('out_CSF', help='Output CSF image')
+  cmdline.add_argument('-mask', help='Only perform SS3T-CSD within a (brain) mask.')
+  cmdline.add_argument('-niter', type=int, default=3, help='Number of iterations. (default: 3)')
+  cmdline.add_argument('-bzero_pct', type=float, default=10.0, help='Weight b=0 images contribution as a percentage of the number of (non b=0) DWIs. (default: 10 per cent)')
+
+def execute(): #pylint: disable=unused-variable
+  import math, json
+  from mrtrix3 import CONFIG, app, image, matrix, MRtrixError, path, run #pylint: disable=no-name-in-module
+
+  bzero_threshold = float(CONFIG['BZeroThreshold']) if 'BZeroThreshold' in CONFIG else 10.0
+
+  app.console('-------')
+  bvalues = [ int(round(float(x))) for x in image.mrinfo(path.from_user(app.ARGS.in_dMRI_data), 'shell_bvalues').split() ]
+  bvolumes = [ int(x) for x in image.mrinfo(path.from_user(app.ARGS.in_dMRI_data), 'shell_sizes').split() ]
+  app.console(str(len(bvalues)) + ' unique b-value(s) detected: ' + ','.join(map(str,bvalues)) + ' with ' + ','.join(map(str,bvolumes)) + ' volumes')
+  if len(bvalues) != 2 or bvalues[0] >= bzero_threshold or bvalues[1] < bzero_threshold:
+    raise MRtrixError('Need b=0 data and a single non b=0 shell.')
+
+  app.console('-------')
+  app.console('Importing response functions:')
+  app.console('* Importing SF WM response function...')
+  sfwm_resp = matrix.load_numeric(path.from_user(app.ARGS.in_SFWM_resp, False))
+  if len(sfwm_resp) != 2:
+    raise MRtrixError('Single-fibre WM response file (' + app.ARGS.in_SFWM_resp + ') contains ' + str(len(sfwm_resp)) + ' lines. Exactly 2 lines are required, for b=0 and a single non b=0 shell.')
+  if len(sfwm_resp[0]) != len(sfwm_resp[1]) or len(sfwm_resp[0]) < 5 or len(sfwm_resp[1]) < 5:
+    raise MRtrixError('Single-fibre WM response file (' + app.ARGS.in_SFWM_resp + ') contains ' + str(len(sfwm_resp)) + ' lines, respectively with ' + str(len(sfwm_resp[0])) + ' and ' + str(len(sfwm_resp[1])) + ' coefficients. A minimum of 5 coefficients (lmax at least 8) is required for each line, and the number of coefficients has to match for both lines.')
+  if any(c != 0 for c in sfwm_resp[0][1:]):
+    raise MRtrixError('Single-fibre WM response file (' + app.ARGS.in_SFWM_resp + ') has anisotropic data on the first line. The first line should represent the isotropic WM response for b=0: a single coefficient followed by a number of zero valued coefficients on the same line.')
+  if all(c == 0 for c in sfwm_resp[1][1:]):
+    raise MRtrixError('Single-fibre WM response file (' + app.ARGS.in_SFWM_resp + ') has isotropic data on the second line. The second line should represent the anisotropic WM response for the non b=0 shell: beyond the first coefficient on this line, at least another one (and typically all of them) should be non-zero on the same line.')
+  sfwm_sdm = math.log(sfwm_resp[0][0] / sfwm_resp[1][0]) if sfwm_resp[1][0] > 0 else float('inf')
+  app.console('  [ SDM = ' + str(sfwm_sdm) + ' ]')
+
+  app.console('* Importing GM response function...')
+  gm_resp = matrix.load_numeric(path.from_user(app.ARGS.in_GM_resp, False))
+  if len(gm_resp) != 2:
+    raise MRtrixError('GM response file (' + app.ARGS.in_GM_resp + ') contains ' + str(len(gm_resp)) + ' lines. Exactly 2 lines are required, for b=0 and a single non b=0 shell.')
+  if len(gm_resp[0]) != 1 or len(gm_resp[1]) != 1:
+    raise MRtrixError('GM response file (' + app.ARGS.in_GM_resp + ') contains ' + str(len(gm_resp)) + ' lines, respectively with ' + str(len(gm_resp[0])) + ' and ' + str(len(gm_resp[1])) + ' coefficients. Both lines should only contain a single coefficient (lmax = 0), for isotropic b=0 and an isotropic non b=0 shell.')
+  gm_sdm = math.log(gm_resp[0][0] / gm_resp[1][0]) if gm_resp[1][0] > 0 else float('inf')
+  app.console('  [ SDM = ' + str(gm_sdm) + ' ]')
+
+  app.console('* Importing CSF response function...')
+  csf_resp = matrix.load_numeric(path.from_user(app.ARGS.in_CSF_resp, False))
+  if len(csf_resp) != 2:
+    raise MRtrixError('CSF response file (' + app.ARGS.in_CSF_resp + ') contains ' + str(len(csf_resp)) + ' lines. Exactly 2 lines are required, for b=0 and a single non b=0 shell.')
+  if len(csf_resp[0]) != 1 or len(csf_resp[1]) != 1:
+    raise MRtrixError('CSF response file (' + app.ARGS.in_CSF_resp + ') contains ' + str(len(csf_resp)) + ' lines, respectively with ' + str(len(csf_resp[0])) + ' and ' + str(len(csf_resp[1])) + ' coefficients. Both lines should only contain a single coefficient (lmax = 0), for isotropic b=0 and an isotropic non b=0 shell.')
+  csf_sdm = math.log(csf_resp[0][0] / csf_resp[1][0]) if csf_resp[1][0] > 0 else float('inf')
+  app.console('  [ SDM = ' + str(csf_sdm) + ' ]')
+
+  if csf_sdm < gm_sdm or gm_sdm < sfwm_sdm:
+    raise MRtrixError('Signal decay metric (SDM) ordering should be: SDM(SF WM) < SDM(GM) < SDM(CSF).')
+
+  if app.ARGS.mask:
+    if image.Header(path.from_user(app.ARGS.mask, False)).size()[0:3] != image.Header(path.from_user(app.ARGS.in_dMRI_data, False)).size()[0:3]:
+      raise MRtrixError('Spatial dimensions of mask image (' + app.ARGS.mask + ') do not match dMRI data (' + app.ARGS.in_dMRI_data + ').')
+
+  if app.ARGS.niter < 2:
+    raise MRtrixError('Requested number of iterations (via -niter) is ' + str(app.ARGS.niter) + '. It should be set to at least 2 iterations.')
+
+  if app.ARGS.bzero_pct <= 0:
+    raise MRtrixError('Requested b=0 contribution (via -bzero_pct) is ' + str(app.ARGS.bzero_pct) + ' per cent. It should be strictly larger than zero percent.')
+
+  app.check_output_path(path.from_user(app.ARGS.out_WM_FOD, False))
+  app.check_output_path(path.from_user(app.ARGS.out_GM, False))
+  app.check_output_path(path.from_user(app.ARGS.out_CSF, False))
+
+  app.console('-------')
+  app.make_scratch_dir()
+
+  app.console('Importing image data...')
+  run.command('mrinfo ' + path.from_user(app.ARGS.in_dMRI_data) + ' -json_keyval ' + path.to_scratch('hdr_dmri.json'), show=False)
+
+  run.command('dwiextract ' + path.from_user(app.ARGS.in_dMRI_data) + ' ' + path.to_scratch('orig_dwi_bz.mif') + ' -shells ' + str(bvalues[0]) + ' -export_grad_mrtrix ' + path.to_scratch('orig_grad_bz'), show=False)
+  run.command('dwiextract ' + path.from_user(app.ARGS.in_dMRI_data) + ' ' + path.to_scratch('orig_dwi_bnz.mif') + ' -shells ' + str(bvalues[1]) + ' -export_grad_mrtrix ' + path.to_scratch('orig_grad_bnz'), show=False)
+
+  mask_option = ''
+  if app.ARGS.mask:
+    run.command('mrconvert ' + path.from_user(app.ARGS.mask) + ' ' + path.to_scratch('mask.mif') + ' -datatype bit', show=False)
+    mask_option = ' -mask mask.mif'
+
+  app.goto_scratch_dir()
+
+  app.console('-------')
+  app.console('Starting algorithm (niter = ' + str(app.ARGS.niter) + ', bzero_pct = ' + str(app.ARGS.bzero_pct) + ')...')
+  ograd_bz = matrix.load_matrix('orig_grad_bz')
+  ograd_bnz = matrix.load_matrix('orig_grad_bnz')
+  with open('grad_bzbnz.txt', 'w') as fbzbnz:
+    with open('grad_bz.txt', 'w') as fbz:
+      for grad in ograd_bz:
+        gline = '0 0 0 0\n'
+        fbzbnz.write(gline)
+        fbz.write(gline)
+    with open('grad_bnz.txt', 'w') as fbnz:
+      for grad in ograd_bnz:
+        gline = ' '.join([ "{:.15g}".format(dcomp) for dcomp in grad[0:3] ]) + ' ' + str(bvalues[1]) + '\n'
+        fbzbnz.write(gline)
+        fbnz.write(gline)
+  app.cleanup('orig_grad_bz')
+  app.cleanup('orig_grad_bnz')
+  bzero_sw = math.sqrt((float(bvolumes[1]) * float(app.ARGS.bzero_pct)) / (float(bvolumes[0]) * 100.0))
+  run.command('mrcalc orig_dwi_bz.mif ' + "{:.15g}".format(bzero_sw) + ' -mult - | mrcat - orig_dwi_bnz.mif - -axis 3 | mrconvert - wdwi.mif -strides 0,0,0,1 -grad grad_bzbnz.txt', show=False)
+  app.cleanup('orig_dwi_bz.mif')
+  app.cleanup('orig_dwi_bnz.mif')
+  with open('wresp_sfwm.txt', 'w') as fresp:
+    with open('wresp_sfwm_bz.txt', 'w') as frespbz:
+      fresp.write(' '.join([ "{:.15g}".format(c * bzero_sw) for c in sfwm_resp[0] ]) + '\n')
+      frespbz.write("{:.15g}".format(sfwm_resp[0][0] * bzero_sw) + '\n')
+    with open('wresp_sfwm_bnz.txt', 'w') as frespbnz:
+      rline = ' '.join([ "{:.15g}".format(c) for c in sfwm_resp[1] ]) + '\n'
+      fresp.write(rline)
+      frespbnz.write(rline)
+  with open('wresp_gm.txt', 'w') as fresp:
+    with open('wresp_gm_bz.txt', 'w') as frespbz:
+      rline = "{:.15g}".format(gm_resp[0][0] * bzero_sw) + '\n'
+      fresp.write(rline)
+      frespbz.write(rline)
+    with open('wresp_gm_bnz.txt', 'w') as frespbnz:
+      rline = "{:.15g}".format(gm_resp[1][0]) + '\n'
+      fresp.write(rline)
+      frespbnz.write(rline)
+  with open('wresp_csf.txt', 'w') as fresp:
+    with open('wresp_csf_bz.txt', 'w') as frespbz:
+      rline = "{:.15g}".format(csf_resp[0][0] * bzero_sw) + '\n'
+      fresp.write(rline)
+      frespbz.write(rline)
+    with open('wresp_csf_bnz.txt', 'w') as frespbnz:
+      rline = "{:.15g}".format(csf_resp[1][0]) + '\n'
+      fresp.write(rline)
+      frespbnz.write(rline)
+
+  app.console('* Initialisation...')
+  run.command('dwi2fod msmt_csd wdwi.mif wresp_gm.txt fod_gm_0.mif wresp_csf.txt fod_csf_0.mif -lmax 0,0' + mask_option, show=False)
+
+  for itr in range(1, int(app.ARGS.niter) + 1):
+    app.console('* Iteration ' + str(itr) + '...')
+    app.cleanup('fod_gm_' + str(itr-1) + '.mif')
+    run.command('shconv fod_csf_' + str(itr-1) + '.mif wresp_csf_bz.txt sh_csf_bz_' + str(itr) + '.mif' + mask_option, show=False)
+    run.command('shconv fod_csf_' + str(itr-1) + '.mif wresp_csf_bnz.txt sh_csf_bnz_' + str(itr) + '.mif' + mask_option, show=False)
+    app.cleanup('fod_csf_' + str(itr-1) + '.mif')
+    run.command('sh2amp sh_csf_bz_' + str(itr) + '.mif grad_bz.txt sig_csf_bz_' + str(itr) + '.mif -gradient', show=False)
+    app.cleanup('sh_csf_bz_' + str(itr) + '.mif')
+    run.command('sh2amp sh_csf_bnz_' + str(itr) + '.mif grad_bnz.txt sig_csf_bnz_' + str(itr) + '.mif -gradient', show=False)
+    app.cleanup('sh_csf_bnz_' + str(itr) + '.mif')
+    run.command('mrcat sig_csf_bz_' + str(itr) + '.mif sig_csf_bnz_' + str(itr) + '.mif sig_csf_' + str(itr) + '.mif -axis 3', show=False)
+    app.cleanup('sig_csf_bz_' + str(itr) + '.mif')
+    app.cleanup('sig_csf_bnz_' + str(itr) + '.mif')
+    run.command('mrcalc wdwi.mif sig_csf_' + str(itr) + '.mif -subtract wdwi_nocsf_' + str(itr) + '.mif', show=False)
+    app.cleanup('sig_csf_' + str(itr) + '.mif')
+    run.command('dwi2fod msmt_csd wdwi_nocsf_' + str(itr) + '.mif wresp_gm.txt fod_tgm_' + str(itr) + '.mif wresp_sfwm.txt fod_wm_' + str(itr) + '.mif -lmax 0,8' + mask_option, show=False)
+    app.cleanup('wdwi_nocsf_' + str(itr) + '.mif')
+    app.cleanup('fod_tgm_' + str(itr) + '.mif')
+    run.command('mrconvert fod_wm_' + str(itr) + '.mif - -coord 3 0 | shconv - wresp_sfwm_bz.txt sh_wm_bz_' + str(itr) + '.mif' + mask_option, show=False)
+    run.command('shconv fod_wm_' + str(itr) + '.mif wresp_sfwm_bnz.txt sh_wm_bnz_' + str(itr) + '.mif' + mask_option, show=False)
+    if itr < int(app.ARGS.niter):
+      app.cleanup('fod_wm_' + str(itr) + '.mif')
+    run.command('sh2amp sh_wm_bz_' + str(itr) + '.mif grad_bz.txt sig_wm_bz_' + str(itr) + '.mif -gradient', show=False)
+    app.cleanup('sh_wm_bz_' + str(itr) + '.mif')
+    run.command('sh2amp sh_wm_bnz_' + str(itr) + '.mif grad_bnz.txt sig_wm_bnz_' + str(itr) + '.mif -gradient', show=False)
+    app.cleanup('sh_wm_bnz_' + str(itr) + '.mif')
+    run.command('mrcat sig_wm_bz_' + str(itr) + '.mif sig_wm_bnz_' + str(itr) + '.mif sig_wm_' + str(itr) + '.mif -axis 3', show=False)
+    app.cleanup('sig_wm_bz_' + str(itr) + '.mif')
+    app.cleanup('sig_wm_bnz_' + str(itr) + '.mif')
+    run.command('mrcalc wdwi.mif sig_wm_' + str(itr) + '.mif -subtract wdwi_nowm_' + str(itr) + '.mif', show=False)
+    app.cleanup('sig_wm_' + str(itr) + '.mif')
+    run.command('dwi2fod msmt_csd wdwi_nowm_' + str(itr) + '.mif wresp_gm.txt fod_gm_' + str(itr) + '.mif wresp_csf.txt fod_csf_' + str(itr) + '.mif -lmax 0,0' + mask_option, show=False)
+    app.cleanup('wdwi_nowm_' + str(itr) + '.mif')
+
+  app.console('-------')
+  app.console('Generating outputs...')
+  with open('hdr_dmri.json', 'r') as fhdr:
+    hdr = json.load(fhdr)
+  hdr['SS3T-CSD_sdm_sfwm'] = str(sfwm_sdm)
+  hdr['SS3T-CSD_sdm_gm'] = str(gm_sdm)
+  hdr['SS3T-CSD_sdm_csf'] = str(csf_sdm)
+  hdr['SS3T-CSD_niter'] = str(app.ARGS.niter)
+  hdr['SS3T-CSD_bzero_pct'] = str(app.ARGS.bzero_pct)
+  hdr['prior_dw_scheme'] = hdr.pop('dw_scheme', None)
+  hdr.pop('mrtrix_version', None)
+  with open('hdr_out.json', 'w') as fhdr:
+    json.dump(hdr, fhdr)
+  run.command('mrconvert fod_wm_' + str(app.ARGS.niter) + '.mif ' + path.from_user(app.ARGS.out_WM_FOD), mrconvert_keyval='hdr_out.json', force=app.FORCE_OVERWRITE, show=False)
+  run.command('mrconvert fod_gm_' + str(app.ARGS.niter) + '.mif ' + path.from_user(app.ARGS.out_GM), mrconvert_keyval='hdr_out.json', force=app.FORCE_OVERWRITE, show=False)
+  run.command('mrconvert fod_csf_' + str(app.ARGS.niter) + '.mif ' + path.from_user(app.ARGS.out_CSF), mrconvert_keyval='hdr_out.json', force=app.FORCE_OVERWRITE, show=False)
+  app.console('-------')
+
+
+
+# Execute the script
+import mrtrix3
+mrtrix3.execute() #pylint: disable=no-member
