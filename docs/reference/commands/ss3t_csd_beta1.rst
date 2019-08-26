@@ -28,6 +28,8 @@ Description
 
 This is an implementation of SS3T-CSD for beta testing and distribution. Use with caution and check all results carefully.
 
+For more information on how to use SS3T-CSD, please visit https://3Tissue.github.io/doc/ss3t-csd.html
+
 Options
 -------
 

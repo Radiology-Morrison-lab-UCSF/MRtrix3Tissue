@@ -15,6 +15,7 @@ def usage(cmdline): #pylint: disable=unused-variable
   cmdline.set_synopsis('SS3T-CSD: beta 1 implementation')
   cmdline.add_citation('Dhollander, T. & Connelly, A. A novel iterative approach to reap the benefits of multi-tissue CSD from just single-shell (+b=0) diffusion MRI data. Proc Intl Soc Mag Reson Med, 2016, 3010')
   cmdline.add_description('This is an implementation of SS3T-CSD for beta testing and distribution. Use with caution and check all results carefully.')
+  cmdline.add_description('For more information on how to use SS3T-CSD, please visit https://3Tissue.github.io/doc/ss3t-csd.html')
   cmdline.add_argument('in_dMRI_data', help='Input dMRI dataset')
   cmdline.add_argument('in_SFWM_resp', help='Input single-fibre WM response function text file')
   cmdline.add_argument('out_WM_FOD', help='Output WM FOD image')
