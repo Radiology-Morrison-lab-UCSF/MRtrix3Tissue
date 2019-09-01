@@ -10,7 +10,7 @@ Various documentation on installation and usage can be found [here](https://3Tis
 
 General quick installation instructions can be found [here](https://3Tissue.github.io/doc/install).
 
-### Feedback and support
+### Release information
 
-Information on how to provide feedback or find more specific support can be found [here](https://3Tissue.github.io/feedback-support.html).
+Information about releases and major changes can be found [here](https://3Tissue.github.io/doc/install/release.html).
 
