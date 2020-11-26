@@ -9,7 +9,7 @@
 //   git tag -s 3.3
 //   git push
 
-#define MRTRIX_BASE_VERSION "3Tissue_v5.2.8"
+#define MRTRIX_BASE_VERSION "3Tissue_v5.2.9"
 
 #endif
 
