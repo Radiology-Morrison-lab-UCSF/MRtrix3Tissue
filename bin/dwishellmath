@@ -1,10 +1,29 @@
 #!/usr/bin/env python
 
+# Copyright (c) 2008-2022 the MRtrix3 contributors.
+#
+# This Source Code Form is subject to the terms of the Mozilla Public
+# License, v. 2.0. If a copy of the MPL was not distributed with this
+# file, You can obtain one at http://mozilla.org/MPL/2.0/.
+#
+# Covered Software is provided under this License on an "as is"
+# basis, without warranty of any kind, either expressed, implied, or
+# statutory, including, without limitation, warranties that the
+# Covered Software is free of defects, merchantable, fit for a
+# particular purpose or non-infringing.
+# See the Mozilla Public License v. 2.0 for more details.
+#
+# For more details, see http://www.mrtrix.org/.
+
+# note: deal with these warnings properly when we drop support for Python 2:
+# pylint: disable=consider-using-f-string
+
+
 SUPPORTED_OPS = ['mean', 'median', 'sum', 'product', 'rms', 'norm', 'var', 'std', 'min', 'max', 'absmax', 'magmax']
 
 
 def usage(cmdline): #pylint: disable=unused-variable
-  from mrtrix3 import app #pylint: disable=no-name-in-module
+  from mrtrix3 import app #pylint: disable=no-name-in-module, import-outside-toplevel
   cmdline.set_author('Daan Christiaens (daan.christiaens@kcl.ac.uk)')
   cmdline.set_synopsis('Apply an mrmath operation to each b-value shell in a DWI series')
   cmdline.add_description('The output of this command is a 4D image, where '
@@ -15,11 +34,12 @@ def usage(cmdline): #pylint: disable=unused-variable
   cmdline.add_argument('output', help='The output image series')
   cmdline.add_example_usage('To compute the mean diffusion-weighted signal in each b-value shell',
                             'dwishellmath dwi.mif mean shellmeans.mif')
-  app.add_dwgrad_import_options()
+  app.add_dwgrad_import_options(cmdline)
 
 
 def execute(): #pylint: disable=unused-variable
-  from mrtrix3 import app, image, MRtrixError, path, run #pylint: disable=no-name-in-module
+  from mrtrix3 import MRtrixError #pylint: disable=no-name-in-module, import-outside-toplevel
+  from mrtrix3 import app, image, path, run #pylint: disable=no-name-in-module, import-outside-toplevel
   # check inputs and outputs
   dwi_header = image.Header(path.from_user(app.ARGS.input, False))
   if len(dwi_header.size()) != 4:
@@ -38,9 +58,14 @@ def execute(): #pylint: disable=unused-variable
     filename = 'shell-{:02d}.mif'.format(index)
     run.command('dwiextract -shells ' + bvalue + ' in.mif - | mrmath -axis 3 - ' + app.ARGS.operation + ' ' + filename)
     files.append(filename)
-  # concatenate to output file
-  run.command('mrcat -axis 3 ' + ' '.join(files) + ' out.mif')
-  run.command('mrconvert out.mif ' + path.from_user(app.ARGS.output), mrconvert_keyval=path.from_user(app.ARGS.input), force=app.FORCE_OVERWRITE)
+  if len(files) > 1:
+    # concatenate to output file
+    run.command('mrcat -axis 3 ' + ' '.join(files) + ' out.mif')
+    run.command('mrconvert out.mif ' + path.from_user(app.ARGS.output), mrconvert_keyval=path.from_user(app.ARGS.input, False), force=app.FORCE_OVERWRITE)
+  else:
+    # make a 4D image with one volume
+    app.warn('Only one unique b-value present in DWI data; command mrmath with -axis 3 option may be preferable')
+    run.command('mrconvert ' + files[0] + ' ' + path.from_user(app.ARGS.output) + ' -axes 0,1,2,-1', mrconvert_keyval=path.from_user(app.ARGS.input, False), force=app.FORCE_OVERWRITE)
 
 
 # Execute the script

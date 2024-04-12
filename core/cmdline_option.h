@@ -1,4 +1,4 @@
-/* Copyright (c) 2008-2019 the MRtrix3 contributors.
+/* Copyright (c) 2008-2022 the MRtrix3 contributors.
  *
  * This Source Code Form is subject to the terms of the Mozilla Public
  * License, v. 2.0. If a copy of the MPL was not distributed with this
@@ -369,7 +369,7 @@ namespace MR
          * OPTIONS
          *   + Option ("roi",
          *       "the region of interest over which to perform the processing. "
-         *       "Mulitple such regions can be specified")
+         *       "Multiple such regions can be specified")
          *     .required()
          *     .allow_multiple()
          *     + Argument ("image").type_image_in();

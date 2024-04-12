@@ -1,4 +1,4 @@
-/* Copyright (c) 2008-2019 the MRtrix3 contributors.
+/* Copyright (c) 2008-2022 the MRtrix3 contributors.
  *
  * This Source Code Form is subject to the terms of the Mozilla Public
  * License, v. 2.0. If a copy of the MPL was not distributed with this
@@ -23,6 +23,7 @@
 #include "types.h"
 
 #include "dwi/tractography/properties.h"
+#include "dwi/tractography/roi.h"
 #include "dwi/tractography/streamline.h"
 
 
@@ -44,14 +45,14 @@ namespace MR {
               inverse (inv),
               ends_only (end),
               thresholds (p),
-              include_visited (properties.include.size(), false) { }
+              include_visitation (properties.include, properties.ordered_include) { }
 
             Worker (const Worker& that) :
               properties (that.properties),
               inverse (that.inverse),
               ends_only (that.ends_only),
               thresholds (that.thresholds),
-              include_visited (properties.include.size(), false) { }
+              include_visitation (properties.include, properties.ordered_include) { }
 
 
             bool operator() (Streamline<>&, Streamline<>&) const;
@@ -73,7 +74,7 @@ namespace MR {
                 float step_size;
             } thresholds;
 
-            mutable vector<bool> include_visited;
+            mutable IncludeROIVisitation include_visitation;
 
         };
 

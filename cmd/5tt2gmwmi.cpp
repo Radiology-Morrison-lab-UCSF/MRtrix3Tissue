@@ -1,4 +1,4 @@
-/* Copyright (c) 2008-2019 the MRtrix3 contributors.
+/* Copyright (c) 2008-2022 the MRtrix3 contributors.
  *
  * This Source Code Form is subject to the terms of the Mozilla Public
  * License, v. 2.0. If a copy of the MPL was not distributed with this
@@ -49,7 +49,7 @@ void usage ()
     + Argument ("mask_out", "the output mask image")                  .type_image_out();
 
   OPTIONS
-    + Option("mask_in", "Filter an input mask image according to those voxels that lie upon the grey matter - white matter boundary. \n"
+    + Option("mask_in", "Filter an input mask image according to those voxels that lie upon the grey matter - white matter boundary. "
                         "If no input mask is provided, the output will be a whole-brain mask image calculated using the anatomical image only.")
       + Argument ("image", "the input mask image").type_image_in();
 

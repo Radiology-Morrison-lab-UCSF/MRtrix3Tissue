@@ -1,4 +1,4 @@
-/* Copyright (c) 2008-2019 the MRtrix3 contributors.
+/* Copyright (c) 2008-2022 the MRtrix3 contributors.
  *
  * This Source Code Form is subject to the terms of the Mozilla Public
  * License, v. 2.0. If a copy of the MPL was not distributed with this
@@ -17,7 +17,6 @@
 #ifndef __math_check_gradient_h__
 #define __math_check_gradient_h__
 
-#include <Eigen/SVD>
 #include "debug.h"
 #include "datatype.h"
 
@@ -101,9 +100,7 @@ namespace MR {
           }
           // CONSOLE ("hessian = [ " + str(hessian) + "]");
           MAT(hessian);
-          auto v = Eigen::JacobiSVD<decltype(hessian)> (hessian).singularValues();
-          auto conditionnumber = v[0] / v[v.size()-1];
-          CONSOLE("\033[00;34mcondition number: " + str(conditionnumber)+"\033[0m");
+          CONSOLE("\033[00;34mcondition number: " + str(condition_number (hessian))+"\033[0m");
         }
       return hessian;
       }

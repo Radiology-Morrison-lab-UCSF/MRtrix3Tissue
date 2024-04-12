@@ -1,4 +1,4 @@
-/* Copyright (c) 2008-2019 the MRtrix3 contributors.
+/* Copyright (c) 2008-2022 the MRtrix3 contributors.
  *
  * This Source Code Form is subject to the terms of the Mozilla Public
  * License, v. 2.0. If a copy of the MPL was not distributed with this
@@ -19,7 +19,7 @@
 #include "command.h"
 #include "exception.h"
 #include "mrtrix.h"
-#include "thread_queue.h"
+#include "ordered_thread_queue.h"
 #include "types.h"
 
 #include "dwi/tractography/file.h"
@@ -53,9 +53,7 @@ void usage ()
   DESCRIPTION
   + "This command can be used to perform various types of manipulations "
     "on track data. A range of such manipulations are demonstrated in the "
-    "examples provided below."
-
-  + DWI::Tractography::preserve_track_order_desc;
+    "examples provided below.";
 
   EXAMPLES
   + Example ("Concatenate data from multiple track files into one",
@@ -105,8 +103,9 @@ void usage ()
   + WeightsOption
 
   + OptionGroup ("Other options specific to tckedit")
-  + Option ("inverse", "output the inverse selection of streamlines based on the criteria provided, "
-                       "i.e. only those streamlines that fail at least one criterion will be written to file.")
+  + Option ("inverse", "output the inverse selection of streamlines based on the criteria provided; "
+                       "i.e. only those streamlines that fail at least one selection criterion, "
+                       "and/or vertices that are outside masks if provided, will be written to file")
 
   + Option ("ends_only", "only test the ends of each streamline against the provided include/exclude ROIs")
 
@@ -171,13 +170,11 @@ void run ()
         properties.prior_rois.insert (i);
     }
 
-    size_t this_count = 0, this_total_count = 0;
+    size_t this_count = 0;
 
     for (const auto& i : p) {
       if (i.first == "count") {
         this_count = to<float> (i.second);
-      } else if (i.first == "total_count") {
-        this_total_count += to<float> (i.second);
       } else {
         auto existing = properties.find (i.first);
         if (existing == properties.end())
@@ -193,7 +190,13 @@ void run ()
 
   DEBUG ("estimated number of input tracks: " + str(count));
 
+  // Remove keyval "total_count", as there is ambiguity about what _should_ be
+  //   contained in that field upon editing one or more existing tractograms
+  //   (it has a specific interpretation in the context of streamline generation only)
+  erase_if_present (properties, "total_count");
+
   load_rois (properties);
+  properties.compare_stepsize_rois();
 
   // Some properties from tracking may be overwritten by this editing process
   // Due to the potential use of masking, we have no choice but to clear the
@@ -215,12 +218,9 @@ void run ()
 
   Loader loader (input_file_list);
   Worker worker (properties, inverse, ends_only);
-  // This needs to be run AFTER creation of the Worker class
-  // (worker needs to be able to set max & min number of points based on step size in input file,
-  //  receiver needs "output_step_size" field to have been updated before file creation)
   Receiver receiver (output_path, properties, number, skip);
 
-  Thread::run_queue (
+  Thread::run_ordered_queue (
       loader,
       Thread::batch (Streamline<>()),
       Thread::multi (worker),

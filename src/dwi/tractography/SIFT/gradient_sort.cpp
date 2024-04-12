@@ -1,4 +1,4 @@
-/* Copyright (c) 2008-2019 the MRtrix3 contributors.
+/* Copyright (c) 2008-2022 the MRtrix3 contributors.
  *
  * This Source Code Form is subject to the terms of the Mozilla Public
  * License, v. 2.0. If a copy of the MPL was not distributed with this
@@ -34,7 +34,8 @@ namespace MR
 
 
 
-      MT_gradient_vector_sorter::MT_gradient_vector_sorter (MT_gradient_vector_sorter::VecType& in, const track_t block_size)
+      MT_gradient_vector_sorter::MT_gradient_vector_sorter (MT_gradient_vector_sorter::VecType& in, const track_t block_size) :
+          end (in.end())
       {
         BlockSender source (in.size(), block_size);
         Sorter      pipe   (in);
@@ -46,11 +47,14 @@ namespace MR
 
       MT_gradient_vector_sorter::VecItType MT_gradient_vector_sorter::get()
       {
+        if (candidates.empty())
+          return end;
         VecItType return_iterator (*candidates.begin());
         VecItType incremented (*candidates.begin());
         ++incremented;
         candidates.erase (candidates.begin());
-        candidates.insert (incremented);
+        if (incremented != end && initial_candidates.find(incremented) == initial_candidates.end())
+          candidates.insert (incremented);
         return return_iterator;
       }
 

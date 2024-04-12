@@ -1,4 +1,4 @@
-/* Copyright (c) 2008-2019 the MRtrix3 contributors.
+/* Copyright (c) 2008-2022 the MRtrix3 contributors.
  *
  * This Source Code Form is subject to the terms of the Mozilla Public
  * License, v. 2.0. If a copy of the MPL was not distributed with this
@@ -28,6 +28,7 @@
 #include "dwi/tensor.h"
 #include "dwi/tractography/tracking/method.h"
 #include "dwi/tractography/tracking/shared.h"
+#include "dwi/tractography/tracking/tractography.h"
 #include "dwi/tractography/tracking/types.h"
 
 
@@ -55,14 +56,16 @@ namespace MR
           if (is_act() && act().backtrack())
             throw Exception ("Backtracking not valid for deterministic algorithms");
 
-          set_step_size (rk4 ? 0.5f : 0.1f, rk4);
+          set_step_and_angle (rk4 ? Defaults::stepsize_voxels_rk4 : Defaults::stepsize_voxels_firstorder,
+                              Defaults::angle_deterministic,
+                              rk4);
           set_num_points();
-          set_cutoff (TCKGEN_DEFAULT_CUTOFF_FA);
+          set_cutoff (Defaults::cutoff_fa * (is_act() ? Defaults::cutoff_act_multiplier : 1.0));
 
           properties["method"] = "TensorDet";
 
           try {
-            auto grad = DWI::get_valid_DW_scheme (source);
+            auto grad = DWI::get_DW_scheme (source);
             auto bmat_double = grad2bmatrix<double> (grad);
             binv = Math::pinv (bmat_double).cast<float>();
             bmat = bmat_double.cast<float>();
@@ -96,7 +99,13 @@ namespace MR
       {
         if (!get_data (source))
           return false;
-        return do_init();
+        if (!do_init())
+          return false;
+        if (S.init_dir.allFinite())
+          return true;
+        if (S.init_dir.dot (dir) < 0.0)
+          dir = -dir;
+        return true;
       }
 
 
@@ -104,13 +113,15 @@ namespace MR
       term_t next () override
       {
         if (!get_data (source))
-          return Tracking::EXIT_IMAGE;
+          return EXIT_IMAGE;
         return do_next();
       }
 
 
-      float get_metric() override
+      float get_metric (const Eigen::Vector3f& position, const Eigen::Vector3f& direction) override
       {
+        if (!get_data (source, position))
+          return 0.0;
         dwi2tensor (dt, S.binv, values);
         return tensor2FA (dt);
       }

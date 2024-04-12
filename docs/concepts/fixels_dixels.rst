@@ -45,7 +45,7 @@ voxel, can be considered as estimating fixels. However in the past,
 researchers have resorted either to lengthy descriptive labels in an
 attempt to express the nature of the data being manipulated, or have
 adopted existing terms, which can lead to confusion with the original sense of
-the terms. Furthermore, these labels are not applied inconsistently
+the terms. Furthermore, these labels are not applied consistently
 between publications; we hope that the term 'fixel', being unambiguous with
 other interpretations of "fibre bundle" or "fascicle" or other examples,
 will slowly become the standard term for describing these data.
@@ -144,7 +144,7 @@ Some observations / contexts in which the term 'dixel' may be useful:
 .. NOTE::
 
    During the development of many of the aforementioned methods,
-   `a presentation <http://dev.ismrm.org/2013/0841.html>`_ was made at
+   `a presentation <http://archive.ismrm.org/2013/0841.html>`_ was made at
    ISMRM demonstrating "Tractographic threshold-free cluster enhancement"
    (this is now referred to as "Connectivity-based Fixel Enhancement (CFE)").
    During the presentation itself, the term 'dixel' was used to refer to a

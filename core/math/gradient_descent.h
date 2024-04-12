@@ -1,4 +1,4 @@
-/* Copyright (c) 2008-2019 the MRtrix3 contributors.
+/* Copyright (c) 2008-2022 the MRtrix3 contributors.
  *
  * This Source Code Form is subject to the terms of the Mozilla Public
  * License, v. 2.0. If a copy of the MPL was not distributed with this
@@ -130,13 +130,16 @@ namespace MR
             nfeval = 0;
             f = evaluate_func (x, g, verbose);
             compute_normg_and_step_unscaled ();
-            assert(std::isfinite(g.norm()));
-            assert(!std::isnan(g.norm()));
-            dt /= g.norm();
+            normg = g.norm();
+            assert(std::isfinite(normg));
+            assert(!std::isnan(normg));
+            dt /= normg;
             if (verbose) {
               CONSOLE ("initialise: f = " + str (f) + ", |g| = " + str (normg) + ":");
               CONSOLE ("  x = [ " + str(x.transpose()) + "]");
             }
+            if (normg == 0.0)
+              return;
             assert (std::isfinite (f));
             assert (!std::isnan(f));
             assert (std::isfinite (normg));

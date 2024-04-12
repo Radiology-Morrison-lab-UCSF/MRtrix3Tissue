@@ -1,4 +1,4 @@
-/* Copyright (c) 2008-2019 the MRtrix3 contributors.
+/* Copyright (c) 2008-2022 the MRtrix3 contributors.
  *
  * This Source Code Form is subject to the terms of the Mozilla Public
  * License, v. 2.0. If a copy of the MPL was not distributed with this
@@ -334,14 +334,8 @@ void run ()
       using ImageTypeM = Header;
 
       n_voxels = 0;
-      vector<Header> headers;
       Registration::Transform::Rigid transform;
-      vector<Eigen::Transform<default_type, 3, Eigen::Projective>> init_transforms;
-      Eigen::Matrix<default_type, 4, 1> padding (0.0, 0.0, 0.0, 0.0);
-      headers.push_back (Header (input1));
-      headers.push_back (Header (input2));
-
-      Header midway_image_header = compute_minimum_average_header (headers, 1, padding, init_transforms);
+      Header midway_image_header = compute_minimum_average_header (input1, input2);
 
       using LinearInterpolatorType1 = Interp::LinearInterp<Image<value_type>, Interp::LinearInterpProcessingType::Value>;
       using LinearInterpolatorType2 = Interp::LinearInterp<Image<value_type>, Interp::LinearInterpProcessingType::Value>;

@@ -1,4 +1,4 @@
-/* Copyright (c) 2008-2019 the MRtrix3 contributors.
+/* Copyright (c) 2008-2022 the MRtrix3 contributors.
  *
  * This Source Code Form is subject to the terms of the Mozilla Public
  * License, v. 2.0. If a copy of the MPL was not distributed with this
@@ -62,7 +62,10 @@ namespace MR
         root->appendChild (new TreeItem ("Multisample anti-aliasing", format.samples() ? str(format.samples()).c_str() : "off", root));
 
         gl::GetIntegerv (gl::MAX_TEXTURE_SIZE, &i);
-        root->appendChild (new TreeItem ("Maximum texture size", str (i), root));
+        root->appendChild (new TreeItem ("Maximum 2D texture size", str (i), root));
+
+        gl::GetIntegerv (gl::MAX_3D_TEXTURE_SIZE, &i);
+        root->appendChild (new TreeItem ("Maximum 3D texture size", str (i), root));
 
         QTreeView* view = new QTreeView;
         view->setModel (model);

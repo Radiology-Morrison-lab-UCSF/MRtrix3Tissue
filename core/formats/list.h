@@ -1,4 +1,4 @@
-/* Copyright (c) 2008-2019 the MRtrix3 contributors.
+/* Copyright (c) 2008-2022 the MRtrix3 contributors.
  *
  * This Source Code Form is subject to the terms of the Mozilla Public
  * License, v. 2.0. If a copy of the MPL was not distributed with this
@@ -97,11 +97,11 @@ namespace MR
     DECLARE_IMAGEFORMAT (NIfTI2, "NIfTI-2");
     DECLARE_IMAGEFORMAT (NIfTI1_GZ, "NIfTI-1.1 (GZip compressed)");
     DECLARE_IMAGEFORMAT (NIfTI2_GZ, "NIfTI-2 (GZip compressed)");
-    DECLARE_IMAGEFORMAT (Analyse, "AnalyseAVW / NIfTI");
     DECLARE_IMAGEFORMAT (MRI, "MRTools (legacy format)");
     DECLARE_IMAGEFORMAT (XDS, "XDS");
     DECLARE_IMAGEFORMAT (MGH, "MGH");
     DECLARE_IMAGEFORMAT (MGZ, "MGZ (compressed MGH)");
+    DECLARE_IMAGEFORMAT (PAR, "Philips PAR/REG");
 #ifdef MRTRIX_TIFF_SUPPORT
     DECLARE_IMAGEFORMAT (TIFF, "TIFF");
 #endif

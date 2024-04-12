@@ -1,4 +1,4 @@
-/* Copyright (c) 2008-2019 the MRtrix3 contributors.
+/* Copyright (c) 2008-2022 the MRtrix3 contributors.
  *
  * This Source Code Form is subject to the terms of the Mozilla Public
  * License, v. 2.0. If a copy of the MPL was not distributed with this
@@ -36,8 +36,8 @@ void usage ()
 
   REFERENCES
   + "Raffelt, D.; Tournier, JD/; Smith, RE.; Vaughan, DN.; Jackson, G.; Ridgway, GR. Connelly, A." // Internal
-    "Investigating White Matter Fibre Density and Morphology using Fixel-Based Analysis. \n"
-    "Neuroimage, 2016, 10.1016/j.neuroimage.2016.09.029\n";
+    "Investigating White Matter Fibre Density and Morphology using Fixel-Based Analysis. "
+    "Neuroimage, 2017, 144, 58-73, doi: 10.1016/j.neuroimage.2016.09.029";
 
   ARGUMENTS
   + Argument ("in", "the input deformation field").type_image_in();
@@ -86,11 +86,6 @@ void run ()
       Fixel::copy_index_file (template_fixel_directory, output_fixel_directory);
       Fixel::copy_directions_file (template_fixel_directory, output_fixel_directory);
     }
-
-    uint32_t num_fixels = 0;
-    fixel_template_index.index(0) = 0;
-    for (auto l = Loop (fixel_template_index, 0, 3) (fixel_template_index); l; ++l)
-      num_fixels += fixel_template_index.value();
 
     fc_output_data = Image<value_type>::create (Path::join (output_fixel_directory, opt[0][2]), Fixel::data_header_from_index (fixel_template_index));
   }

@@ -1,4 +1,4 @@
-/* Copyright (c) 2008-2019 the MRtrix3 contributors.
+/* Copyright (c) 2008-2022 the MRtrix3 contributors.
  *
  * This Source Code Form is subject to the terms of the Mozilla Public
  * License, v. 2.0. If a copy of the MPL was not distributed with this
@@ -26,7 +26,7 @@ namespace MR {
 
 
 
-      bool QuickScan::read (const std::string& file_name, bool print_DICOM_fields, bool print_CSA_fields, bool force_read)
+      bool QuickScan::read (const std::string& file_name, bool print_DICOM_fields, bool print_CSA_fields, bool print_Phoenix, bool force_read)
       {
         filename = file_name;
         modality.clear();
@@ -38,6 +38,7 @@ namespace MR {
         study_ID.clear();
         study_time.clear();
         series.clear();
+        series_ref_UID.clear();
         image_type.clear();
         series_date.clear();
         series_time.clear();
@@ -53,37 +54,42 @@ namespace MR {
             bool in_frames = false;
 
             while (item.read()) {
-              if      (item.is (0x0008U, 0x0008U)) current_image_type = join (item.get_string(), " ");
-              else if (item.is (0x0008U, 0x0020U)) study_date = item.get_string (0);
-              else if (item.is (0x0008U, 0x0021U)) series_date = item.get_string (0);
-              else if (item.is (0x0008U, 0x0030U)) study_time = item.get_string (0);
-              else if (item.is (0x0008U, 0x0031U)) series_time = item.get_string (0);
-              else if (item.is (0x0008U, 0x0060U)) modality = item.get_string (0);
-              else if (item.is (0x0008U, 0x1030U)) study = item.get_string (0);
-              else if (item.is (0x0008U, 0x103EU)) series = item.get_string (0);
-              else if (item.is (0x0010U, 0x0010U)) patient = item.get_string (0);
-              else if (item.is (0x0010U, 0x0020U)) patient_ID = item.get_string (0);
-              else if (item.is (0x0010U, 0x0030U)) patient_DOB = item.get_string (0);
-              else if (item.is (0x0018U, 0x0024U)) sequence = item.get_string (0);
-              else if (item.is (0x0020U, 0x0010U)) study_ID = item.get_string (0);
-              else if (item.is (0x0020U, 0x0011U)) series_number = item.get_uint (0);
-              else if (item.is (0x0028U, 0x0010U)) dim[1] = item.get_uint (0);
-              else if (item.is (0x0028U, 0x0011U)) dim[0] = item.get_uint (0);
-              else if (item.is (0x0028U, 0x0100U)) bits_alloc = item.get_uint (0);
-              else if (item.is (0x7FE0U, 0x0010U)) data = item.offset (item.data);
-              else if (item.is (0xFFFEU, 0xE000U)) {
-                if (item.parents.size() &&
-                    item.parents.back().group ==  0x5200U &&
-                    item.parents.back().element == 0x9230U) { // multi-frame item
-                  if (in_frames) ++image_type[current_image_type];
-                  else in_frames = true;
+              if (!item.ignore_when_parsing()) {
+
+                if      (item.is (0x0008U, 0x0008U)) current_image_type = join (item.get_string(), " ");
+                else if (item.is (0x0008U, 0x0020U)) study_date = item.get_string (0);
+                else if (item.is (0x0008U, 0x0021U)) series_date = item.get_string (0);
+                else if (item.is (0x0008U, 0x0030U)) study_time = item.get_string (0);
+                else if (item.is (0x0008U, 0x0031U)) series_time = item.get_string (0);
+                else if (item.is (0x0008U, 0x0060U)) modality = item.get_string (0);
+                else if (item.is (0x0008U, 0x1030U)) study = item.get_string (0);
+                else if (item.is (0x0008U, 0x103EU)) series = item.get_string (0);
+                else if (item.is (0x0010U, 0x0010U)) patient = item.get_string (0);
+                else if (item.is (0x0010U, 0x0020U)) patient_ID = item.get_string (0);
+                else if (item.is (0x0010U, 0x0030U)) patient_DOB = item.get_string (0);
+                else if (item.is (0x0018U, 0x0024U)) sequence = item.get_string (0);
+                else if (item.is (0x0020U, 0x000DU)) study_UID = item.get_string (0);
+                else if (item.is (0x0020U, 0x000EU)) { if (item.is_in_series_ref_sequence()) series_ref_UID = item.get_string(0); }
+                else if (item.is (0x0020U, 0x0010U)) study_ID = item.get_string (0);
+                else if (item.is (0x0020U, 0x0011U)) series_number = item.get_uint (0);
+                else if (item.is (0x0028U, 0x0010U)) dim[1] = item.get_uint (0);
+                else if (item.is (0x0028U, 0x0011U)) dim[0] = item.get_uint (0);
+                else if (item.is (0x0028U, 0x0100U)) bits_alloc = item.get_uint (0);
+                else if (item.is (0x7FE0U, 0x0010U)) data = item.offset (item.data);
+                else if (item.is (0xFFFEU, 0xE000U)) {
+                  if (item.parents.size() &&
+                      item.parents.back().group ==  0x5200U &&
+                      item.parents.back().element == 0x9230U) { // multi-frame item
+                    if (in_frames) ++image_type[current_image_type];
+                    else in_frames = true;
+                  }
                 }
               }
 
               if (print_DICOM_fields)
                 print (str(item));
 
-              if (print_CSA_fields && item.group == 0x0029U) {
+              if ((print_CSA_fields || print_Phoenix) && item.group == 0x0029U) {
                 if (item.element == 0x1010U ||
                     item.element == 0x1020U ||
                     item.element == 0x1110U ||
@@ -91,8 +97,28 @@ namespace MR {
                     item.element == 0x1210U ||
                     item.element == 0x1220U) {
                   CSAEntry entry (item.data, item.data + item.size);
-                  while (entry.parse())
-                    print (str (entry));
+                  while (entry.parse()) {
+                    const bool is_phoenix = (strcmp ("MrPhoenixProtocol", entry.key()) == 0);
+                    if ((print_Phoenix && is_phoenix) || (print_CSA_fields && !is_phoenix)) {
+                      if (print_CSA_fields) {
+                        print (str (entry));
+                      } else {
+                        const auto data = entry.get_string();
+                        for (const auto& entry : data)
+                          print (entry);
+                      }
+                    } else if (print_CSA_fields && is_phoenix) {
+                      print (std::string("[CSA] ") + entry.key() + " (" + str(entry.num_items()) + " items): <");
+                      const auto data = entry.get_string();
+                      size_t line_count = 0;
+                      for (const auto& entry : data) {
+                        if (entry.size())
+                          line_count += 1;
+                        line_count += std::count (entry.begin(), entry.end(), '\n');
+                       }
+                       print (str(line_count) + " text lines>\n");
+                    }
+                  }
                 }
               }
             }

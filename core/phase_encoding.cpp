@@ -1,4 +1,4 @@
-/* Copyright (c) 2008-2019 the MRtrix3 contributors.
+/* Copyright (c) 2008-2022 the MRtrix3 contributors.
  *
  * This Source Code Form is subject to the terms of the Mozilla Public
  * License, v. 2.0. If a copy of the MPL was not distributed with this
@@ -74,14 +74,15 @@ namespace MR
         if (ssize_t(PE.rows()) != ((header.ndim() > 3) ? header.size(3) : 1))
           throw Exception ("malformed PE scheme in image \"" + header.name() + "\" - number of rows does not equal number of volumes");
       } else {
-        // Header entries are cast to lowercase at some point
         const auto it_dir  = header.keyval().find ("PhaseEncodingDirection");
-        const auto it_time = header.keyval().find ("TotalReadoutTime");
-        if (it_dir != header.keyval().end() && it_time != header.keyval().end()) {
-          Eigen::Matrix<default_type, 4, 1> row;
-          row.head<3>() = Axes::id2dir (it_dir->second);
-          row[3] = to<default_type>(it_time->second);
-          PE.resize ((header.ndim() > 3) ? header.size(3) : 1, 4);
+        if (it_dir != header.keyval().end()) {
+          const auto it_time = header.keyval().find ("TotalReadoutTime");
+          const size_t cols = it_time == header.keyval().end() ? 3 : 4;
+          Eigen::Matrix<default_type, Eigen::Dynamic, 1> row (cols);
+          row.head(3) = Axes::id2dir (it_dir->second);
+          if (it_time != header.keyval().end())
+            row[3] = to<default_type>(it_time->second);
+          PE.resize ((header.ndim() > 3) ? header.size(3) : 1, cols);
           PE.rowwise() = row.transpose();
         }
       }
@@ -99,12 +100,12 @@ namespace MR
       try {
         const auto opt_table = get_options ("import_pe_table");
         if (opt_table.size())
-          result = load (opt_table[0][0]);
+          result = load (opt_table[0][0], header);
         const auto opt_eddy = get_options ("import_pe_eddy");
         if (opt_eddy.size()) {
           if (opt_table.size())
-            throw Exception ("Please provide phase encoding table using either -import_pe_table or -import_pe_eddy option (not both)");
-          result = load_eddy (opt_eddy[0][0], opt_eddy[0][1]);
+            throw Exception ("Phase encoding table can be provided using either -import_pe_table or -import_pe_eddy option, but NOT both");
+          result = load_eddy (opt_eddy[0][0], opt_eddy[0][1], header);
         }
         if (!opt_table.size() && !opt_eddy.size())
           result = parse_scheme (header);
@@ -116,7 +117,7 @@ namespace MR
       if (!result.rows())
         return result;
 
-      if (result.cols() < 4)
+      if (result.cols() < 3)
         throw Exception ("unexpected phase encoding table matrix dimensions");
 
       INFO ("found " + str (result.rows()) + "x" + str (result.cols()) + " phase encoding table");
@@ -153,28 +154,14 @@ namespace MR
 
       auto opt = get_options ("export_pe_table");
       if (opt.size())
-        save (check (scheme), opt[0][0]);
+        save (check (scheme), header, opt[0][0]);
 
       opt = get_options ("export_pe_eddy");
       if (opt.size())
-        save_eddy (check (scheme), opt[0][0], opt[0][1]);
+        save_eddy (check (scheme), header, opt[0][0], opt[0][1]);
     }
 
 
-
-    Eigen::MatrixXd load (const std::string& path)
-    {
-      const Eigen::MatrixXd result = load_matrix (path);
-      check (result);
-      return result;
-    }
-
-    Eigen::MatrixXd load_eddy (const std::string& config_path, const std::string& index_path)
-    {
-      const Eigen::MatrixXd config = load_matrix (config_path);
-      const Eigen::Array<int, Eigen::Dynamic, 1> indices = load_vector<int> (index_path);
-      return eddy2scheme (config, indices);
-    }
 
 
 

@@ -1,4 +1,4 @@
-/* Copyright (c) 2008-2019 the MRtrix3 contributors.
+/* Copyright (c) 2008-2022 the MRtrix3 contributors.
  *
  * This Source Code Form is subject to the terms of the Mozilla Public
  * License, v. 2.0. If a copy of the MPL was not distributed with this
@@ -30,10 +30,13 @@ namespace MR {
         {
           // Perform an explicit calculation of streamline length
           // From this, derive the spline position of each sample
-          assert (in.size() > 1);
           out.clear();
-          out.index = in.index;
+          if (!valid())
+            return false;
+          out.set_index (in.get_index());
           out.weight = in.weight;
+          if (in.size() < 2)
+            return true;
           value_type length = 0.0;
           vector<value_type> steps;
           for (size_t i = 1; i != in.size(); ++i) {

@@ -1,4 +1,4 @@
-/* Copyright (c) 2008-2019 the MRtrix3 contributors.
+/* Copyright (c) 2008-2022 the MRtrix3 contributors.
  *
  * This Source Code Form is subject to the terms of the Mozilla Public
  * License, v. 2.0. If a copy of the MPL was not distributed with this
@@ -32,7 +32,9 @@ void usage ()
   DESCRIPTION
     + "This command computes the sum of squared SH coefficients, "
       "which equals the mean-squared amplitude "
-      "of the spherical function it represents.";
+      "of the spherical function it represents."
+
+    + Math::SH::encoding_description;
 
   ARGUMENTS
     + Argument ("SH", "the input spherical harmonics coefficients image.").type_image_in ()

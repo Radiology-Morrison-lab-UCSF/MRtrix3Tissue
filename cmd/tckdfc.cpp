@@ -1,4 +1,4 @@
-/* Copyright (c) 2008-2019 the MRtrix3 contributors.
+/* Copyright (c) 2008-2022 the MRtrix3 contributors.
  *
  * This Source Code Form is subject to the terms of the Mozilla Public
  * License, v. 2.0. If a copy of the MPL was not distributed with this
@@ -128,7 +128,7 @@ OPTIONS
             "the streamline trajectory until a valid timeseries is found")
 
   + Option ("upsample",
-      "upsample the tracks by some ratio using Hermite interpolation before mappipng \n"
+      "upsample the tracks by some ratio using Hermite interpolation before mapping "
       "(if omitted, an appropriate ratio will be determined automatically)")
     + Argument ("factor").type_integer (1);
 

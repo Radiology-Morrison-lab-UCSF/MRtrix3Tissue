@@ -1,4 +1,4 @@
-/* Copyright (c) 2008-2019 the MRtrix3 contributors.
+/* Copyright (c) 2008-2022 the MRtrix3 contributors.
  *
  * This Source Code Form is subject to the terms of the Mozilla Public
  * License, v. 2.0. If a copy of the MPL was not distributed with this
@@ -36,14 +36,8 @@
 namespace MR
 {
 
-  const App::Option NoRealignOption
-  = App::Option ("norealign",
-                 "do not realign transform to near-default RAS coordinate system (the "
-                 "default behaviour on image load). This is useful to inspect the image "
-                 "and/or header contents as they are actually stored in the header, "
-                 "rather than as MRtrix interprets them.");
 
-  bool Header::do_not_realign_transform = false;
+  bool Header::do_realign_transform = true;
 
 
 
@@ -75,6 +69,40 @@ namespace MR
 
 
 
+  namespace {
+    std::string resolve_slice_timing (const std::string& one, const std::string& two)
+    {
+      if (one == "variable" || two == "variable")
+        return "variable";
+      vector<std::string> one_split = split (one, ",");
+      vector<std::string> two_split = split (two, ",");
+      if (one_split.size() != two_split.size()) {
+        DEBUG ("Slice timing vectors of inequal length");
+        return "invalid";
+      }
+      // Siemens CSA reports with 2.5ms precision = 0.0025s
+      // Allow slice times to vary by 1.5x this amount, but no more
+      for (size_t i = 0; i != one_split.size(); ++i) {
+        default_type f_one, f_two;
+        try {
+          f_one = to<default_type> (one_split[i]);
+          f_two = to<default_type> (two_split[i]);
+        } catch (Exception& e) {
+          DEBUG ("Error converting slice timing vector to floating-point");
+          return "invalid";
+        }
+        const default_type diff = abs (f_two - f_one);
+        if (diff > 0.00375) {
+          DEBUG ("Supra-threshold difference of " + str(diff) + "s in slice times");
+          return "variable";
+        }
+      }
+      return one;
+    }
+  }
+
+
+
   void Header::merge_keyval (const Header& H)
   {
     std::map<std::string, std::string> new_keyval;
@@ -102,6 +130,8 @@ namespace MR
         auto it = keyval().find (item.first);
         if (it == keyval().end() || it->second == item.second)
           new_keyval.insert (item);
+        else if (item.first == "SliceTiming")
+          new_keyval["SliceTiming"] = resolve_slice_timing (item.second, it->second);
         else
           new_keyval[item.first] = "variable";
       }
@@ -144,7 +174,7 @@ namespace MR
       INFO ("opening image \"" + image_name + "\"...");
 
       File::ParsedName::List list;
-      const vector<int> num = list.parse_scan_check (image_name);
+      const auto num = list.parse_scan_check (image_name);
 
       const Formats::Base** format_handler = Formats::handlers;
       size_t item_index = 0;
@@ -238,9 +268,10 @@ namespace MR
       } // End branching for [] notation
 
       H.sanitise();
-      if (!do_not_realign_transform)
+      if (do_realign_transform)
         H.realign_transform();
     }
+    catch (CancelException& e) { throw; }
     catch (Exception& E) {
       throw Exception (E, "error opening image \"" + image_name + "\"");
     }
@@ -293,7 +324,7 @@ namespace MR
 
       File::NameParser parser;
       parser.parse (image_name);
-      vector<int> Pdim (parser.ndim());
+      vector<uint32_t> Pdim (parser.ndim());
 
       vector<int> Hdim (H.ndim());
       for (size_t i = 0; i < H.ndim(); ++i)
@@ -335,12 +366,12 @@ namespace MR
       const bool split_4d_schemes = (parser.ndim() == 1 && template_header.ndim() == 4);
       Eigen::MatrixXd dw_scheme, pe_scheme;
       try {
-        dw_scheme = DWI::get_DW_scheme (template_header);
+        dw_scheme = DWI::parse_DW_scheme (template_header);
       } catch (Exception&) {
         DWI::clear_DW_scheme (H);
       }
       try {
-        pe_scheme = PhaseEncoding::get_scheme (template_header);
+        pe_scheme = PhaseEncoding::parse_scheme (template_header);
       } catch (Exception&) {
         PhaseEncoding::clear_scheme (H);
       }
@@ -353,7 +384,7 @@ namespace MR
           DWI::clear_DW_scheme (H);
         }
         try {
-          PhaseEncoding::check (template_header, pe_scheme);
+          PhaseEncoding::check (pe_scheme, template_header);
           PhaseEncoding::set_scheme (H, pe_scheme.row (0));
         } catch (Exception&) {
           pe_scheme.resize (0, 0);
@@ -363,9 +394,9 @@ namespace MR
 
 
       Header header (H);
-      vector<int> num (Pdim.size());
+      vector<uint32_t> num (Pdim.size());
 
-      if (image_name != "-")
+      if (!is_dash (image_name))
         H.name() = parser.name (num);
 
       H.io = (*format_handler)->create (H);
@@ -490,7 +521,7 @@ namespace MR
   {
     std::string desc (
         "************************************************\n"
-        "Image:               \"" + name() + "\"\n"
+        "Image name:          \"" + name() + "\"\n"
         "************************************************\n");
 
     desc += "  Dimensions:        ";
@@ -602,6 +633,24 @@ namespace MR
       WARN ("transform matrix contains invalid entries - resetting to sane defaults");
       transform() = Transform::get_default (*this);
     }
+
+    // check that cosine vectors are unit length (to some precision):
+    bool rescale_cosine_vectors = false;
+    for (size_t i = 0; i < 3; ++i) {
+      auto length = transform().matrix().col(i).head<3>().norm();
+      if (abs (length-1.0) > 1.0e-6)
+        rescale_cosine_vectors = true;
+    }
+
+    // if unit length, rescale and modify voxel sizes accordingly:
+    if (rescale_cosine_vectors) {
+      INFO ("non unit cosine vectors detected - normalising and rescaling voxel sizes to match");
+      for (size_t i = 0; i < 3; ++i) {
+        auto length = transform().matrix().col(i).head(3).norm();
+        transform().matrix().col(i).head(3) /= length;
+        spacing(i) *= length;
+      }
+    }
   }
 
 
@@ -610,13 +659,11 @@ namespace MR
   void Header::realign_transform ()
   {
     // find which row of the transform is closest to each scanner axis:
-    size_t perm [3];
-    bool flip[3];
-    Axes::get_permutation_to_make_axial (transform(), perm, flip);
+    Axes::get_permutation_to_make_axial (transform(), realign_perm_, realign_flip_);
 
     // check if image is already near-axial, return if true:
-    if (perm[0] == 0 && perm[1] == 1 && perm[2] == 2 &&
-        !flip[0] && !flip[1] && !flip[2])
+    if (realign_perm_[0] == 0 && realign_perm_[1] == 1 && realign_perm_[2] == 2 &&
+        !realign_flip_[0] && !realign_flip_[1] && !realign_flip_[2])
       return;
 
     auto M (transform());
@@ -624,7 +671,7 @@ namespace MR
 
     // modify translation vector:
     for (size_t i = 0; i < 3; ++i) {
-      if (flip[i]) {
+      if (realign_flip_[i]) {
         const default_type length = (size(i)-1) * spacing(i);
         auto axis = M.matrix().col (i);
         for (size_t n = 0; n < 3; ++n) {
@@ -637,9 +684,9 @@ namespace MR
     // switch and/or invert rows if needed:
     for (size_t i = 0; i < 3; ++i) {
       auto row = M.matrix().row(i).head<3>();
-      row = Eigen::RowVector3d (row[perm[0]], row[perm[1]], row[perm[2]]);
+      row = Eigen::RowVector3d (row[realign_perm_[0]], row[realign_perm_[1]], row[realign_perm_[2]]);
 
-      if (flip[i])
+      if (realign_flip_[i])
         stride(i) = -stride(i);
     }
 
@@ -648,9 +695,9 @@ namespace MR
 
     // switch axes to match:
     Axis a[] = {
-      axes_[perm[0]],
-      axes_[perm[1]],
-      axes_[perm[2]]
+      axes_[realign_perm_[0]],
+      axes_[realign_perm_[1]],
+      axes_[realign_perm_[2]]
     };
     axes_[0] = a[0];
     axes_[1] = a[1];
@@ -666,26 +713,26 @@ namespace MR
       for (ssize_t row = 0; row != pe_scheme.rows(); ++row) {
         Eigen::VectorXd new_line (pe_scheme.row (row));
         for (ssize_t axis = 0; axis != 3; ++axis) {
-          new_line[axis] = pe_scheme(row, perm[axis]);
-          if (new_line[axis] && flip[axis])
+          new_line[axis] = pe_scheme(row, realign_perm_[axis]);
+          if (new_line[axis] && realign_flip_[realign_perm_[axis]])
             new_line[axis] = -new_line[axis];
         }
         pe_scheme.row (row) = new_line;
       }
       PhaseEncoding::set_scheme (*this, pe_scheme);
-      INFO ("Phase encoding scheme has been modified according to internal header transform realignment");
+      INFO ("Phase encoding scheme modified to conform to MRtrix3 internal header transform realignment");
     }
 
     // If there's any slice encoding direction information present in the
     //   header, that's also necessary to update here
     auto slice_encoding_it = keyval().find ("SliceEncodingDirection");
     if (slice_encoding_it != keyval().end()) {
-      const Eigen::Vector3 orig_dir (Axes::id2dir (slice_encoding_it->second));
-      Eigen::Vector3 new_dir;
+      const Eigen::Vector3d orig_dir (Axes::id2dir (slice_encoding_it->second));
+      Eigen::Vector3d new_dir;
       for (size_t axis = 0; axis != 3; ++axis)
-        new_dir[axis] = orig_dir[perm[axis]] * (flip[axis] ? -1.0 : 1.0);
+        new_dir[axis] = orig_dir[realign_perm_[axis]] * (realign_flip_[realign_perm_[axis]] ? -1.0 : 1.0);
       slice_encoding_it->second = Axes::dir2id (new_dir);
-      INFO ("Slice encoding direction has been modified according to internal header transform realignment");
+      INFO ("Slice encoding direction has been modified to conform to MRtrix3 internal header transform realignment");
     }
 
   }
@@ -783,7 +830,7 @@ namespace MR
       // Concatenate 4D schemes if necessary
       if (axis_to_concat == 3) {
         try {
-          const auto extra_dw = DWI::get_DW_scheme (H);
+          const auto extra_dw = DWI::parse_DW_scheme (H);
           concat_scheme (dw_scheme, extra_dw);
         } catch (Exception&) {
           dw_scheme.resize (0, 0);

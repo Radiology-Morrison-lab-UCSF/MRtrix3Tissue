@@ -1,4 +1,4 @@
-/* Copyright (c) 2008-2019 the MRtrix3 contributors.
+/* Copyright (c) 2008-2022 the MRtrix3 contributors.
  *
  * This Source Code Form is subject to the terms of the Mozilla Public
  * License, v. 2.0. If a copy of the MPL was not distributed with this
@@ -168,7 +168,7 @@ namespace MR
         H_sh.stride (3) = 0;
         auto out = Image<float>::create (path, H_sh);
         VoxelAccessor v (accessor());
-        for (auto l = Loop (out) (out, v); l; ++l) {
+        for (auto l = Loop (v) (out, v); l; ++l) {
           if (v.value()) {
             Eigen::Matrix<default_type, Eigen::Dynamic, 1> sum = Eigen::Matrix<default_type, Eigen::Dynamic, 1>::Zero (N);
             for (typename Fixel_map<Fixel>::ConstIterator i = begin (v); i; ++i) {

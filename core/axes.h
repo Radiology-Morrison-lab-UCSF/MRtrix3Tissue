@@ -1,4 +1,4 @@
-/* Copyright (c) 2008-2019 the MRtrix3 contributors.
+/* Copyright (c) 2008-2022 the MRtrix3 contributors.
  *
  * This Source Code Form is subject to the terms of the Mozilla Public
  * License, v. 2.0. If a copy of the MPL was not distributed with this
@@ -36,14 +36,14 @@ namespace MR
        *  phase-encoding direction between a 3-vector (e.g.
        *  [0 1 0] ) and a NIfTI axis identifier (e.g. 'i-')
        */
-    std::string    dir2id (const Eigen::Vector3&);
-    Eigen::Vector3 id2dir (const std::string&);
+    std::string    dir2id (const Eigen::Vector3d&);
+    Eigen::Vector3d id2dir (const std::string&);
 
 
 
     //! determine the axis permutations and flips necessary to make an image
     //!   appear approximately axial
-    void get_permutation_to_make_axial (const transform_type& T, size_t perm[3], bool flip[3]);
+    void get_permutation_to_make_axial (const transform_type& T, std::array<size_t, 3>& perm, std::array<bool, 3>& flip);
 
 
 

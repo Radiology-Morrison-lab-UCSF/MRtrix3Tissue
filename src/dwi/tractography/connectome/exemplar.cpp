@@ -1,4 +1,4 @@
-/* Copyright (c) 2008-2019 the MRtrix3 contributors.
+/* Copyright (c) 2008-2022 the MRtrix3 contributors.
  *
  * This Source Code Form is subject to the terms of the Mozilla Public
  * License, v. 2.0. If a copy of the MPL was not distributed with this
@@ -82,7 +82,7 @@ void Exemplar::add (const Connectome::Streamline_nodelist& in)
   Tractography::Streamline<float> subtck;
   for (size_t i = first; i <= last; ++i)
     subtck.push_back (in[i]);
-  subtck.index  = in.index;
+  subtck.set_index (in.get_index());
   subtck.weight = in.weight;
   add (in, is_reversed);
 }
@@ -117,9 +117,16 @@ void Exemplar::finalize (const float step_size)
   assert (!is_finalized);
   std::lock_guard<std::mutex> lock (mutex);
 
-  if (!weight || is_diagonal()) {
-    // No streamlines assigned, or a diagonal in the matrix; generate a straight line between the two nodes
-    // FIXME Is there an error in the new tractography tool that is causing omission of the first track segment?
+  // For diagonal matrix entries (self-connection), or if one of the two nodes
+  //   does not have a defined position in space, don't write an exemplar
+  if (is_diagonal() || !(node_COMs.first.allFinite() && node_COMs.second.allFinite())) {
+    clear();
+    is_finalized = true;
+    return;
+  }
+
+  // No streamlines assigned; generate a straight line between the two nodes
+  if (!weight) {
     clear();
     push_back (node_COMs.first);
     push_back (node_COMs.second);

@@ -41,7 +41,7 @@ Example usages
 
 -   *Extract the streamlines connecting node 15 to all other nodes in the parcellation, with one track file for each edge*::
 
-        $ tck2connectome tracks.tck assignments.txt from_15_to_ -nodes 15 -keep_self
+        $ connectome2tck tracks.tck assignments.txt from_15_to_ -nodes 15 -keep_self
 
     The command will generate the same number of track files as there are nodes in the parcellation: one each for the streamlines connecting node 15 to every other node; i.e. "from_15_to_1.tck", "from_15_to_2.tck", "from_15_to_3.tck", etc.. Because the -keep_self option is specified, file "from_15_to_15.tck" will also be generated, containing those streamlines that connect to node 15 at both endpoints.
 
@@ -59,7 +59,7 @@ Example usages
 
 -   *Generate a single track file containing edge exemplar trajectories*::
 
-        $ tck2connectome tracks.tck assignments.txt exemplars.tck -files single -exemplars nodes.mif
+        $ connectome2tck tracks.tck assignments.txt exemplars.tck -files single -exemplars nodes.mif
 
     This produces the track file that is required as input when attempting to display connectome edges using the streamlines or streamtubes geometries within the meview connectome tool.
 
@@ -101,11 +101,16 @@ Standard options
 
 -  **-nthreads number** use this number of threads in multi-threaded applications (set to 0 to disable multi-threading).
 
--  **-config key value**  *(multiple uses permitted)* temporarily set the value of an MRtrix config file entry.
+-  **-config key value** *(multiple uses permitted)* temporarily set the value of an MRtrix config file entry.
 
 -  **-help** display this information page and exit.
 
 -  **-version** display version information and exit.
+
+References
+^^^^^^^^^^
+
+Tournier, J.-D.; Smith, R. E.; Raffelt, D.; Tabbara, R.; Dhollander, T.; Pietsch, M.; Christiaens, D.; Jeurissen, B.; Yeh, C.-H. & Connelly, A. MRtrix3: A fast, flexible and open software framework for medical image processing and visualisation. NeuroImage, 2019, 202, 116137
 
 --------------
 
@@ -113,7 +118,7 @@ Standard options
 
 **Author:** Robert E. Smith (robert.smith@florey.edu.au)
 
-**Copyright:** Copyright (c) 2008-2019 the MRtrix3 contributors.
+**Copyright:** Copyright (c) 2008-2022 the MRtrix3 contributors.
 
 This Source Code Form is subject to the terms of the Mozilla Public
 License, v. 2.0. If a copy of the MPL was not distributed with this

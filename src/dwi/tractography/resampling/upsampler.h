@@ -1,4 +1,4 @@
-/* Copyright (c) 2008-2019 the MRtrix3 contributors.
+/* Copyright (c) 2008-2022 the MRtrix3 contributors.
  *
  * This Source Code Form is subject to the terms of the Mozilla Public
  * License, v. 2.0. If a copy of the MPL was not distributed with this
@@ -49,7 +49,7 @@ namespace MR {
 
 
             bool operator() (const Streamline<>&, Streamline<>&) const override;
-            bool valid () const override { return (M.rows()); }
+            bool valid () const override { return true; }
 
             void set_ratio (const size_t);
             size_t get_ratio() const { return (M.rows() ? (M.rows() + 1) : 1); }

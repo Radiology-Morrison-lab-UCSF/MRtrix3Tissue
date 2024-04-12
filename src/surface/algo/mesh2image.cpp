@@ -1,4 +1,4 @@
-/* Copyright (c) 2008-2019 the MRtrix3 contributors.
+/* Copyright (c) 2008-2022 the MRtrix3 contributors.
  *
  * This Source Code Form is subject to the terms of the Mozilla Public
  * License, v. 2.0. If a copy of the MPL was not distributed with this
@@ -47,7 +47,7 @@ namespace MR
 
         // For speed, want the vertex data to be in voxel positions
         Mesh mesh;
-        vector<Eigen::Vector3> polygon_normals;
+        vector<Eigen::Vector3d> polygon_normals;
 
         // For every edge voxel, stores those polygons that may intersect the voxel
         using Vox2Poly = std::map< Vox, vector<size_t> >;
@@ -83,6 +83,7 @@ namespace MR
           // Create some memory to work with:
           // Stores a flag for each voxel as encoded in enum vox_mesh_t
           Header H (image);
+          H.datatype() = DataType::UInt8;
           auto init_seg = Image<uint8_t>::scratch (H);
           for (auto l = Loop(init_seg) (init_seg); l; ++l)
             init_seg.value() = vox_mesh_t::UNDEFINED;
@@ -125,13 +126,13 @@ namespace MR
                 mesh.load_quad_vertices (vertices, poly_index - mesh.num_triangles());
 
               // Test whether or not the two objects can be separated via projection onto an axis
-              auto separating_axis = [&] (const Eigen::Vector3& axis) -> bool {
+              auto separating_axis = [&] (const Eigen::Vector3d& axis) -> bool {
                 default_type voxel_low  =  std::numeric_limits<default_type>::infinity();
                 default_type voxel_high = -std::numeric_limits<default_type>::infinity();
                 default_type poly_low   =  std::numeric_limits<default_type>::infinity();
                 default_type poly_high  = -std::numeric_limits<default_type>::infinity();
 
-                static const Eigen::Vector3 voxel_offsets[8] = { { -0.5, -0.5, -0.5 },
+                static const Eigen::Vector3d voxel_offsets[8] = { { -0.5, -0.5, -0.5 },
                                                                  { -0.5, -0.5,  0.5 },
                                                                  { -0.5,  0.5, -0.5 },
                                                                  { -0.5,  0.5,  0.5 },
@@ -141,7 +142,7 @@ namespace MR
                                                                  {  0.5,  0.5,  0.5 } };
 
                 for (size_t i = 0; i != 8; ++i) {
-                  const Eigen::Vector3 v (vox.matrix().cast<default_type>() + voxel_offsets[i]);
+                  const Eigen::Vector3d v (vox.matrix().cast<default_type>() + voxel_offsets[i]);
                   const default_type projection = axis.dot (v);
                   voxel_low  = std::min (voxel_low,  projection);
                   voxel_high = std::max (voxel_high, projection);
@@ -162,7 +163,7 @@ namespace MR
               //   All cross-products between voxel and polygon edges
               //   Polygon normal
               for (size_t i = 0; i != 3; ++i) {
-                Eigen::Vector3 axis (0.0, 0.0, 0.0);
+                Eigen::Vector3d axis (0.0, 0.0, 0.0);
                 axis[i] = 1.0;
                 if (separating_axis (axis))
                   return false;
@@ -208,7 +209,6 @@ namespace MR
                     voxel2poly.insert (std::make_pair (voxel, this_voxel_polys));
                   } } } }
 
-
           }
           ++progress;
 
@@ -218,6 +218,8 @@ namespace MR
           //   by the normal at the vertex.
           // Each voxel not directly on the mesh should then be assigned as prelim_inside or prelim_outside
           //   depending on whether the summed value is positive or negative
+          H.datatype() = DataType::Float32;
+          H.datatype().set_byte_order_native();
           auto sum_distances = Image<float>::scratch (H, "Sum of distances from polygon planes");
           Vox adj_voxel;
           for (size_t i = 0; i != mesh.num_vertices(); ++i) {
@@ -226,7 +228,7 @@ namespace MR
               for (adj_voxel[1] = centre_voxel[1]-1; adj_voxel[1] <= centre_voxel[1]+1; ++adj_voxel[1]) {
                 for (adj_voxel[0] = centre_voxel[0]-1; adj_voxel[0] <= centre_voxel[0]+1; ++adj_voxel[0]) {
                   if (!is_out_of_bounds (H, adj_voxel) && (adj_voxel - centre_voxel).any()) {
-                    const Eigen::Vector3 offset (adj_voxel.cast<default_type>().matrix() - mesh.vert(i));
+                    const Eigen::Vector3d offset (adj_voxel.cast<default_type>().matrix() - mesh.vert(i));
                     const default_type dp_normal = offset.dot (mesh.norm(i));
                     const default_type offset_on_plane = (offset - (mesh.norm(i) * dp_normal)).norm();
                     assign_pos_of (adj_voxel).to (sum_distances);
@@ -257,6 +259,7 @@ namespace MR
           for (auto l = Loop(seed) (seed); l; ++l) {
             if (seed.value() == vox_mesh_t::PRELIM_INSIDE || seed.value() == vox_mesh_t::PRELIM_OUTSIDE) {
               size_t prelim_inside_count = 0, prelim_outside_count = 0;
+              float sum_sum_distances = 0.0f;
               if (seed.value() == vox_mesh_t::PRELIM_INSIDE)
                 prelim_inside_count = 1;
               else
@@ -276,6 +279,8 @@ namespace MR
                         ++prelim_inside_count;
                       else if (adj_value == vox_mesh_t::PRELIM_OUTSIDE)
                         ++prelim_outside_count;
+                      assign_pos_of (init_seg).to (sum_distances);
+                      sum_sum_distances += sum_distances.value();
                       to_expand.push (adj_voxel);
                       to_fill.push_back (adj_voxel);
                       init_seg.value() = vox_mesh_t::FILL_TEMP;
@@ -283,10 +288,40 @@ namespace MR
                   }
                 }
               } while (to_expand.size());
-              if (prelim_inside_count == prelim_outside_count)
-                throw Exception ("Mapping mesh to image failed: Unable to label connected voxel region as inside or outside mesh");
-              const vox_mesh_t fill_value = (prelim_inside_count > prelim_outside_count ? vox_mesh_t::INSIDE : vox_mesh_t::OUTSIDE);
-              for (auto voxel : to_fill) {
+              vox_mesh_t fill_value = vox_mesh_t::UNDEFINED;
+              if (prelim_inside_count == prelim_outside_count && sum_sum_distances) {
+                fill_value = sum_sum_distances < 0.0f ? vox_mesh_t::INSIDE : vox_mesh_t::OUTSIDE;
+              } else if (prelim_inside_count > 10 * prelim_outside_count) {
+                fill_value = vox_mesh_t::INSIDE;
+              } else if (prelim_outside_count > 10 * prelim_inside_count) {
+                fill_value = vox_mesh_t::OUTSIDE;
+              } else {
+                // Residual ambiguity about whether the connected region is inside or outside the surface
+                // What other tests can we perform to make this decision?
+                // If all eight corners of the FoV are included in to_fill, we can be
+                //   reasonably confident that this connected region lies outside the structure
+                size_t corner_count = 0;
+                for (const auto& voxel : to_fill) {
+                  if ((voxel[0] == 0 || voxel[0] == H.size(0) - 1) &&
+                      (voxel[1] == 0 || voxel[1] == H.size(1) - 1) &&
+                      (voxel[2] == 0 || voxel[2] == H.size(2) - 1))
+                    ++corner_count;
+                }
+                if (corner_count == 8) {
+                  fill_value = vox_mesh_t::OUTSIDE;
+                } else if (!corner_count) {
+                  fill_value = vox_mesh_t::INSIDE;
+                } else if (sum_sum_distances) {
+                  fill_value = sum_sum_distances < 0.0f ? vox_mesh_t::INSIDE : vox_mesh_t::OUTSIDE;
+                } else {
+                  Exception e ("Internal error: fundamental ambiguity in voxel-based segmentation of surface");
+                  e.push_back ("Fill region size: " + str(to_fill.size()));
+                  e.push_back ("Preliminary classifications: " + str(prelim_inside_count) + " inside, " + str(prelim_outside_count) + " outside");
+                  e.push_back ("FoV corners: " + str(corner_count));
+                  throw e;
+                }
+              }
+              for (const auto& voxel : to_fill) {
                 assign_pos_of (voxel).to (init_seg);
                 init_seg.value() = fill_value;
               }
@@ -341,13 +376,13 @@ namespace MR
         class Pipe
         { NOMEMALIGN
           public:
-            Pipe (const Mesh& mesh, const vector<Eigen::Vector3>& polygon_normals) :
+            Pipe (const Mesh& mesh, const vector<Eigen::Vector3d>& polygon_normals) :
                 mesh (mesh),
                 polygon_normals (polygon_normals)
 
             {
               // Generate a set of points within this voxel that need to be tested individually
-              offsets_to_test.reset(new vector<Eigen::Vector3>());
+              offsets_to_test.reset(new vector<Eigen::Vector3d>());
               offsets_to_test->reserve (pve_nsamples);
               for (size_t x_idx = 0; x_idx != pve_os_ratio; ++x_idx) {
                 const default_type x = -0.5 + ((default_type(x_idx) + 0.5) / default_type(pve_os_ratio));
@@ -369,7 +404,7 @@ namespace MR
               size_t inside_mesh_count = 0;
               for (vector<Vertex>::const_iterator i_p = offsets_to_test->begin(); i_p != offsets_to_test->end(); ++i_p) {
                 Vertex p (*i_p);
-                p += Eigen::Vector3 (voxel[0], voxel[1], voxel[2]);
+                p += Eigen::Vector3d (voxel[0], voxel[1], voxel[2]);
 
                 default_type best_min_edge_distance_on_plane = -std::numeric_limits<default_type>::infinity();
                 bool best_result_inside = false;
@@ -377,7 +412,7 @@ namespace MR
 
                 // Only test against those polygons that are near this voxel
                 for (vector<size_t>::const_iterator polygon_index = in.second.begin(); polygon_index != in.second.end(); ++polygon_index) {
-                  const Eigen::Vector3& n (polygon_normals[*polygon_index]);
+                  const Eigen::Vector3d& n (polygon_normals[*polygon_index]);
 
                   const size_t polygon_num_vertices = (*polygon_index < mesh.num_triangles()) ? 3 : 4;
                   VertexList v;
@@ -481,9 +516,9 @@ namespace MR
 
           private:
             const Mesh& mesh;
-            const vector<Eigen::Vector3>& polygon_normals;
+            const vector<Eigen::Vector3d>& polygon_normals;
 
-            std::shared_ptr<vector<Eigen::Vector3>> offsets_to_test;
+            std::shared_ptr<vector<Eigen::Vector3d>> offsets_to_test;
 
         };
 

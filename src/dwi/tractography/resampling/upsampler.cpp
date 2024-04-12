@@ -1,4 +1,4 @@
-/* Copyright (c) 2008-2019 the MRtrix3 contributors.
+/* Copyright (c) 2008-2022 the MRtrix3 contributors.
  *
  * This Source Code Form is subject to the terms of the Mozilla Public
  * License, v. 2.0. If a copy of the MPL was not distributed with this
@@ -29,13 +29,15 @@ namespace MR {
 
         bool Upsampler::operator() (const Streamline<>& in, Streamline<>& out) const
         {
-          if (get_ratio() == 1 || in.size() < 2) {
+          if (get_ratio() == 1 || in.size() == 1) {
             out = in;
             return true;
           }
           out.clear();
-          out.index = in.index;
+          out.set_index (in.get_index());
           out.weight = in.weight;
+          if (in.empty())
+            return true;
           Streamline<> in_padded (in);
           interp_prepare (in_padded);
           for (size_t i = 3; i < in_padded.size(); ++i) {

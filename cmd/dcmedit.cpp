@@ -1,4 +1,4 @@
-/* Copyright (c) 2008-2019 the MRtrix3 contributors.
+/* Copyright (c) 2008-2022 the MRtrix3 contributors.
  *
  * This Source Code Form is subject to the terms of the Mozilla Public
  * License, v. 2.0. If a copy of the MPL was not distributed with this
@@ -45,8 +45,8 @@ void usage ()
 
   OPTIONS
   + Option ("anonymise", "remove any identifiable information, by replacing the following tags:\n"
-      " - any tag with Value Representation PN will be replaced with 'anonymous'\n"
-      " - tag (0010,0030) PatientBirthDate will be replaced with an empty string\n\n"
+      "- any tag with Value Representation PN will be replaced with 'anonymous'\n"
+      "- tag (0010,0030) PatientBirthDate will be replaced with an empty string\n"
       "WARNING: there is no guarantee that this command will remove all identiable "
       "information, since such information may be contained in any number "
       "of private vendor-specific tags. You will need to double-check the "
@@ -105,8 +105,8 @@ void run ()
 
 
   opt = get_options ("tag");
-  if (opt.size()) 
-    for (size_t n = 0; n < opt.size(); ++n) 
+  if (opt.size())
+    for (size_t n = 0; n < opt.size(); ++n)
       tags.push_back (Tag (read_hex (opt[n][0]), read_hex (opt[n][1]), opt[n][2]));
 
   opt = get_options ("id");
@@ -121,7 +121,7 @@ void run ()
     VR.i = VRs[n];
     INFO (std::string ("clearing entries with VR \"") + VR.c[1] + VR.c[0] + "\"");
   }
-  for (size_t n = 0; n < tags.size(); ++n) 
+  for (size_t n = 0; n < tags.size(); ++n)
     INFO ("replacing tag (" + hex(tags[n].group) + "," + hex(tags[n].element) + ") with value \"" + tags[n].newvalue + "\"");
 
   File::Dicom::Element item;

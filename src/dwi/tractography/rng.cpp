@@ -1,4 +1,4 @@
-/* Copyright (c) 2008-2019 the MRtrix3 contributors.
+/* Copyright (c) 2008-2022 the MRtrix3 contributors.
  *
  * This Source Code Form is subject to the terms of the Mozilla Public
  * License, v. 2.0. If a copy of the MPL was not distributed with this
@@ -23,11 +23,7 @@ namespace MR
     namespace Tractography
     {
 
-#ifdef MRTRIX_MACOSX
-      __thread Math::RNG* rng = nullptr;
-#else
-      thread_local Math::RNG* rng = nullptr;
-#endif 
+      thread_local Math::RNG rng;
 
     }
   }

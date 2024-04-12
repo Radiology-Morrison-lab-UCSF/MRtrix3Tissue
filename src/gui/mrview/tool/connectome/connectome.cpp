@@ -1,4 +1,4 @@
-/* Copyright (c) 2008-2019 the MRtrix3 contributors.
+/* Copyright (c) 2008-2022 the MRtrix3 contributors.
  *
  * This Source Code Form is subject to the terms of the Mozilla Public
  * License, v. 2.0. If a copy of the MPL was not distributed with this
@@ -24,7 +24,6 @@
 #include "algo/threaded_loop.h"
 #include "file/path.h"
 #include "gui/dialog/file.h"
-#include "gui/mrview/colourmap.h"
 #include "math/math.h"
 #include "math/rng.h"
 
@@ -52,7 +51,7 @@ namespace MR
             mat2vec (nullptr),
             lighting (this),
             lighting_dock (nullptr),
-            node_list (new Tool::Dock ("Connectome node list")),
+            node_list (new Tool::Dock ("Connectome node list", Window::tools_floating)),
             is_3D (true),
             crop_to_slab (false),
             slab_thickness (0.0f),
@@ -866,7 +865,7 @@ namespace MR
 
         void Connectome::image_open_slot()
         {
-          const std::string path = Dialog::File::get_image (this, "Select connectome parcellation image");
+          const std::string path = Dialog::File::get_image (this, "Select connectome parcellation image", &current_folder);
           if (path.empty())
             return;
 
@@ -897,7 +896,7 @@ namespace MR
 
         void Connectome::matrix_open_slot ()
         {
-          vector<std::string> list = Dialog::File::get_files (&window(), "Select connectome file(s) to open");
+          vector<std::string> list = Dialog::File::get_files (&window(), "Select connectome file(s) to open", "", &current_folder);
           if (list.empty())
             return;
           add_matrices (list);
@@ -2269,6 +2268,8 @@ namespace MR
           for (node_t n = 1; n <= max_index; ++n)
             node_coms[n] *= (1.0f / float(node_volumes[n]));
 
+          selected_nodes.resize (max_index+1);
+
           nodes.clear();
           const size_t pixheight = dynamic_cast<Node_list*>(node_list->tool)->row_height();
 
@@ -2317,8 +2318,6 @@ namespace MR
           H_overlay.sanitise();
           node_overlay.reset (new NodeOverlay (std::move (H_overlay)));
           update_node_overlay();
-
-          selected_nodes.resize (num_nodes()+1);
 
           dynamic_cast<Node_list*>(node_list->tool)->initialize();
         }
@@ -2486,7 +2485,8 @@ namespace MR
 
               std::map<float, size_t> node_ordering;
               for (size_t i = 1; i <= num_nodes(); ++i)
-                node_ordering.insert (std::make_pair (projection.depth_of (nodes[i].get_com()), i));
+                if (nodes[i].get_volume() > 0)
+                  node_ordering.insert (std::make_pair (projection.depth_of (nodes[i].get_com()), i));
 
               for (auto it = node_ordering.rbegin(); it != node_ordering.rend(); ++it) {
                 const Node& node (nodes[it->second]);
@@ -2634,6 +2634,7 @@ namespace MR
                   gl::Uniform1f (edge_alpha_ID, edge_alpha_given_selection (edge) * edge_fixed_alpha);
                 switch (edge_geometry) {
                   case edge_geometry_t::LINE:
+                    // TODO: in OpenGL >3, this has no effect:
                     gl::LineWidth (calc_line_width (edge_size_given_selection (edge) * edge_size_scale_factor, edge_geometry_line_smooth_checkbox->isChecked()));
                     edge.render_line();
                     break;
@@ -2693,7 +2694,7 @@ namespace MR
 
         bool Connectome::import_vector_file (FileDataVector& data, const std::string& attribute)
         {
-          const std::string path = Dialog::File::get_file (this, "Select vector file to determine " + attribute, "Data files (*.csv)");
+          const std::string path = Dialog::File::get_file (this, "Select vector file to determine " + attribute, "Data files (*.csv)", &current_folder);
           if (path.empty())
             return false;
           try {
@@ -2717,7 +2718,7 @@ namespace MR
 
         bool Connectome::import_matrix_file (FileDataVector& data, const std::string& attribute)
         {
-          const std::string path = Dialog::File::get_file (this, "Select matrix file to determine " + attribute, "Data files (*.csv)");
+          const std::string path = Dialog::File::get_file (this, "Select matrix file to determine " + attribute, "Data files (*.csv)", &current_folder);
           if (path.empty())
             return false;
           MR::Connectome::matrix_type temp;
@@ -2755,13 +2756,44 @@ namespace MR
           } else {
             // Load the node names from the LUT
             // Other properties will only be pulled from the LUT if requested
+            // Permit two indices to have a duplicate entry without warning
+            //   (so that using new FreeSurfer tables will not raise a warning);
+            //   if more than two node indices has a duplicate entry, issue the
+            //   user with a warning, as they may have selected the incorrect
+            //   LUT file
+            for (node_t node_index = 1; node_index <= num_nodes(); ++node_index)
+              nodes[node_index].set_name ("");
+            size_t duplicate_entry_count = 0;
             for (node_t node_index = 1; node_index <= num_nodes(); ++node_index) {
               const size_t count = lut.count (node_index);
-              if (count) {
-                if (count > 1)
-                  throw Exception ("Duplicate entries in lookup table file for index " + str(node_index));
+              if (count == 1) {
                 nodes[node_index].set_name (lut.find(node_index)->second.get_name());
+              } else if (count > 1) {
+                ++duplicate_entry_count;
+                vector<std::string> names;
+                const auto range = lut.equal_range (node_index);
+                for (auto i = range.first; i != range.second; ++i)
+                  names.push_back (i->second.get_name());
+                std::nth_element (names.begin(), names.begin(), names.end());
+                nodes[node_index].set_name (names.front());
               }
+            }
+            if (duplicate_entry_count > 2) {
+              WARN("Lookup table file contains " + str(duplicate_entry_count) + " indices with duplicate entries; "
+                   "file may be intended for use in conversion rather than visualisation");
+            }
+            size_t absent_entry_count = 0;
+            for (node_t node_index = 1; node_index <= num_nodes(); ++node_index) {
+              if (nodes[node_index].get_volume() && !nodes[node_index].get_name().size()) {
+                const std::string name = "Node " + str(node_index);
+                nodes[node_index].set_name (name);
+                lut.insert (std::make_pair (node_index, MR::Connectome::LUT_node (name)));
+                ++absent_entry_count;
+              }
+            }
+            if (absent_entry_count) {
+              WARN(str(absent_entry_count) + " indices present in parcellation image with no entry in lookup table; "
+                   "lookup table file and parcellation image may not match");
             }
           }
 
@@ -3661,7 +3693,7 @@ namespace MR
             fade = node_selection_settings.get_edge_associated_colour_fade();
             colour = node_selection_settings.get_edge_associated_colour();
           }
-          if (selected_nodes[edge.get_node_index (0)] & selected_nodes[edge.get_node_index (1)]) {
+          if (selected_nodes[edge.get_node_index (0)] && selected_nodes[edge.get_node_index (1)]) {
             fade = node_selection_settings.get_edge_selected_colour_fade();
             colour = node_selection_settings.get_edge_selected_colour();
           }
@@ -3674,7 +3706,7 @@ namespace MR
           float multiplier = node_selection_settings.get_edge_other_size_multiplier();
           if (selected_nodes[edge.get_node_index (0)] || selected_nodes[edge.get_node_index (1)])
             multiplier = node_selection_settings.get_edge_associated_size_multiplier();
-          if (selected_nodes[edge.get_node_index (0)] & selected_nodes[edge.get_node_index (1)])
+          if (selected_nodes[edge.get_node_index (0)] && selected_nodes[edge.get_node_index (1)])
             multiplier = node_selection_settings.get_edge_selected_size_multiplier();
           return (multiplier * edge.get_size());
         }
@@ -3685,7 +3717,7 @@ namespace MR
           float multiplier = node_selection_settings.get_edge_other_alpha_multiplier();
           if (selected_nodes[edge.get_node_index (0)] || selected_nodes[edge.get_node_index (1)])
             multiplier = node_selection_settings.get_edge_associated_alpha_multiplier();
-          if (selected_nodes[edge.get_node_index (0)] & selected_nodes[edge.get_node_index (1)])
+          if (selected_nodes[edge.get_node_index (0)] && selected_nodes[edge.get_node_index (1)])
             multiplier = node_selection_settings.get_edge_selected_alpha_multiplier();
           return (multiplier * edge.get_alpha());
         }
@@ -3782,7 +3814,7 @@ namespace MR
         void Connectome::get_meshes()
         {
           // Request exemplar track file path from user
-          const std::string path = GUI::Dialog::File::get_file (this, "Select file containing mesh for each node", "OBJ mesh files (*.obj)");
+          const std::string path = GUI::Dialog::File::get_file (this, "Select file containing mesh for each node", "OBJ mesh files (*.obj)", &current_folder);
           if (!path.size()) return;
           Surface::MeshMulti meshes;
           meshes.load (path);
@@ -3800,7 +3832,7 @@ namespace MR
         void Connectome::get_exemplars()
         {
           // Request exemplar track file path from user
-          const std::string path = GUI::Dialog::File::get_file (this, "Select track file resulting from running connectome2tck -exemplars", "Track files (*.tck)");
+          const std::string path = GUI::Dialog::File::get_file (this, "Select track file resulting from running connectome2tck -exemplars", "Track files (*.tck)", &current_folder);
           if (!path.size()) return;
           MR::DWI::Tractography::Properties properties;
           MR::DWI::Tractography::Reader<float> reader (path, properties);
@@ -3810,8 +3842,8 @@ namespace MR
           ProgressBar progress ("Importing connection exemplars", num_edges());
           MR::DWI::Tractography::Streamline<float> tck;
           while (reader (tck)) {
-            edges[tck.index].load_exemplar (tck);
-            edges[tck.index].create_streamline();
+            edges[tck.get_index()].load_exemplar (tck);
+            edges[tck.get_index()].create_streamline();
             ++progress;
           }
           have_exemplars = true;

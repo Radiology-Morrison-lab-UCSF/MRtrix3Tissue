@@ -1,4 +1,4 @@
-/* Copyright (c) 2008-2019 the MRtrix3 contributors.
+/* Copyright (c) 2008-2022 the MRtrix3 contributors.
  *
  * This Source Code Form is subject to the terms of the Mozilla Public
  * License, v. 2.0. If a copy of the MPL was not distributed with this
@@ -36,8 +36,8 @@ namespace MR
         public:
           AdjustButton (QWidget* parent, float change_rate = 1.0);
 
-          float value () const { 
-            if (text().isEmpty()) 
+          float value () const {
+            if (text().isEmpty())
               return NAN;
             try {
               return to<float> (text().toStdString());

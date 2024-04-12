@@ -1,4 +1,4 @@
-/* Copyright (c) 2008-2019 the MRtrix3 contributors.
+/* Copyright (c) 2008-2022 the MRtrix3 contributors.
  *
  * This Source Code Form is subject to the terms of the Mozilla Public
  * License, v. 2.0. If a copy of the MPL was not distributed with this
@@ -86,7 +86,7 @@ void run ()
     }
 
     vector<Eigen::Transform<default_type, 3, Eigen::Projective>> transform_header_with;
-    auto H = compute_minimum_average_header (headers_in, resolution, padding, transform_header_with);
+    auto H = compute_minimum_average_header (headers_in, transform_header_with, resolution, padding);
     H.datatype() = DataType::Bit;
     if (fill) {
       H.ndim() = dim;

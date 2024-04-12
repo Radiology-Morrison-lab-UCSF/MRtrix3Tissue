@@ -1,4 +1,4 @@
-/* Copyright (c) 2008-2019 the MRtrix3 contributors.
+/* Copyright (c) 2008-2022 the MRtrix3 contributors.
  *
  * This Source Code Form is subject to the terms of the Mozilla Public
  * License, v. 2.0. If a copy of the MPL was not distributed with this
@@ -36,6 +36,7 @@
 #include "math/average_space.h"
 #include "math/SH.h"
 #include "adapter/jacobian.h"
+#include "file/nifti_utils.h"
 
 
 
@@ -86,7 +87,7 @@ void usage ()
     + "* If FOD modulation is being performed:\n"
     "Raffelt, D.; Tournier, J.-D.; Rose, S.; Ridgway, G.R.; Henderson, R.; Crozier, S.; Salvado, O.; Connelly, A.; " // Internal
     "Apparent Fibre Density: a novel measure for the analysis of diffusion-weighted magnetic resonance images. "
-    "NeuroImage, 2012, 15;59(4), 3976-94.";
+    "NeuroImage, 2012, 15;59(4), 3976-94";
 
   ARGUMENTS
   + Argument ("input", "input image to be transformed.").type_image_in ()
@@ -187,10 +188,12 @@ void usage ()
     + Option ("reorient_fod",
         "specify whether to perform FOD reorientation. This is required if the number "
         "of volumes in the 4th dimension corresponds to the number of coefficients in an "
-        "antipodally symmetric spherical harmonic series with lmax >= 2 (i.e. 6, 15, 28, 45, 66 volumes.")
+        "antipodally symmetric spherical harmonic series with lmax >= 2 (i.e. 6, 15, 28, 45, 66 volumes).")
     + Argument ("boolean").type_bool()
 
     + DWI::GradImportOptions()
+
+    + DWI::GradExportOptions()
 
     + DataType::options ()
 
@@ -205,7 +208,7 @@ void usage ()
 }
 
 void apply_warp (Image<float>& input, Image<float>& output, Image<default_type>& warp,
-  const int interp, const float out_of_bounds_value, const vector<int>& oversample, const bool jacobian_modulate = false) {
+  const int interp, const float out_of_bounds_value, const vector<uint32_t>& oversample, const bool jacobian_modulate = false) {
   switch (interp) {
   case 0:
     Filter::warp<Interp::Nearest> (input, output, warp, out_of_bounds_value, oversample, jacobian_modulate);
@@ -295,6 +298,11 @@ void run ()
   opt = get_options ("warp_full");
   Image<default_type> warp;
   if (opt.size()) {
+    if (!Path::is_mrtrix_image (opt[0][0]) && !(Path::has_suffix (opt[0][0], {".nii", ".nii.gz"}) &&
+                                                File::Config::get_bool ("NIfTIAutoLoadJSON", false) &&
+                                                Path::exists(File::NIfTI::get_json_path(opt[0][0]))))
+      WARN ("warp_full image is not in original .mif/.mih file format or in NIfTI file format with associated JSON.  "
+            "Converting to other file formats may remove linear transformations stored in the image header.");
     warp = Image<default_type>::open (opt[0][0]).with_direct_io();
     Registration::Warp::check_warp_full (warp);
     if (linear)
@@ -352,7 +360,7 @@ void run ()
   // Flip
   opt = get_options ("flip");
   if (opt.size()) {
-    vector<int> axes = opt[0][0];
+    vector<int32_t> axes = parse_ints<int32_t> (opt[0][0]);
     transform_type flip;
     flip.setIdentity();
     for (size_t i = 0; i < axes.size(); ++i) {
@@ -430,39 +438,50 @@ void run ()
     } else if (is_possible_fod_image) {
       WARN ("Jacobian modulation performed on possible SH series image. Did you mean FOD modulation?");
     }
-
     if (!linear && !warp.valid())
       throw Exception ("Jacobian modulation requires linear or nonlinear transformation");
-
   }
 
 
-  // Rotate/Flip gradient directions if present
+  // Rotate/Flip direction information if present
   if (linear && input_header.ndim() == 4 && !warp && !fod_reorientation) {
     Eigen::MatrixXd rotation = linear_transform.linear().inverse();
     Eigen::MatrixXd test = rotation.transpose() * rotation;
     test = test.array() / test.diagonal().mean();
     if (replace)
       rotation = linear_transform.linear() * input_header.transform().linear().inverse();
+
+    // Diffusion gradient table
+    Eigen::MatrixXd grad;
     try {
-      auto grad = DWI::get_DW_scheme (input_header);
-      if (input_header.size(3) == (ssize_t) grad.rows()) {
+      grad = DWI::get_DW_scheme (input_header);
+    } catch (Exception&) {}
+    if (grad.rows()) {
+      try {
+        if (input_header.size(3) != (ssize_t) grad.rows()) {
+          throw Exception ("DW gradient table of different length ("
+                           + str(grad.rows())
+                           + ") to number of image volumes ("
+                           + str(input_header.size(3))
+                           + ")");
+        }
         INFO ("DW gradients detected and will be reoriented");
         if (!test.isIdentity (0.001)) {
           WARN ("the input linear transform contains shear or anisotropic scaling and "
                 "therefore should not be used to reorient directions / diffusion gradients");
         }
         for (ssize_t n = 0; n < grad.rows(); ++n) {
-          Eigen::Vector3 grad_vector = grad.block<1,3>(n,0);
+          Eigen::Vector3d grad_vector = grad.block<1,3>(n,0);
           grad.block<1,3>(n,0) = rotation * grad_vector;
         }
         DWI::set_DW_scheme (output_header, grad);
       }
+      catch (Exception& e) {
+        e.display (2);
+        WARN ("DW gradients not correctly reoriented");
+      }
     }
-    catch (Exception& e) {
-      e.display (2);
-      WARN ("DW gradients not correctly reoriented");
-    }
+
     // Also look for key 'directions', and rotate those if present
     auto hit = input_header.keyval().find ("directions");
     if (hit != input_header.keyval().end()) {
@@ -488,13 +507,13 @@ void run ()
           }
           if (result.cols() == 2) {
             Eigen::Matrix<default_type, 2, 1> azel (v.data());
-            Eigen::Vector3 dir;
+            Eigen::Vector3d dir;
             Math::Sphere::spherical2cartesian (azel, dir);
             dir = rotation * dir;
             Math::Sphere::cartesian2spherical (dir, azel);
             result.row (l) = azel;
           } else {
-            const Eigen::Vector3 dir = rotation * Eigen::Vector3 (v.data());
+            const Eigen::Vector3d dir = rotation * Eigen::Vector3d (v.data());
             result.row (l) = dir;
           }
           std::stringstream s;
@@ -519,12 +538,12 @@ void run ()
   }
 
   // over-sampling
-  vector<int> oversample = Adapter::AutoOverSample;
+  vector<uint32_t> oversample = Adapter::AutoOverSample;
   opt = get_options ("oversample");
   if (opt.size()) {
     if (!template_header.valid() && !warp)
       throw Exception ("-oversample option applies only to regridding using the template option or to non-linear transformations");
-    oversample = opt[0][0];
+    oversample = parse_ints<uint32_t> (opt[0][0]);
     if (oversample.size() == 1)
       oversample.resize (3, oversample[0]);
     else if (oversample.size() != 3)
@@ -555,13 +574,11 @@ void run ()
 
     if (get_options ("midway_space").size()) {
       INFO("regridding to midway space");
-      vector<Header> headers;
-      headers.push_back(input_header);
-      headers.push_back(template_header);
-      vector<Eigen::Transform<default_type, 3, Eigen::Projective>> void_trafo;
-      auto padding = Eigen::Matrix<double, 4, 1>(1.0, 1.0, 1.0, 1.0);
-      int subsampling = 1;
-      auto midway_header = compute_minimum_average_header (headers, subsampling, padding, void_trafo);
+      if (!half)
+        WARN ("regridding to midway_space assumes the linear transformation to be a transformation from input to midway space. Use -half if the input transformation is a full transformation.");
+      transform_type linear_transform_inverse;
+      linear_transform_inverse.matrix() = linear_transform.inverse().matrix();
+      auto midway_header = compute_minimum_average_header (input_header, template_header, linear_transform_inverse, linear_transform);
       for (size_t i = 0; i < 3; ++i) {
         output_header.size(i) = midway_header.size(i);
         output_header.spacing(i) = midway_header.spacing(i);
@@ -596,6 +613,8 @@ void run ()
 
     if (modulate_jac)
       apply_linear_jacobian (output, linear_transform);
+
+    DWI::export_grad_commandline (output);
 
   } else if (warp.valid()) {
 
@@ -645,6 +664,8 @@ void run ()
           output, warp, directions_cartesian.transpose(), modulate_fod);
     }
 
+    DWI::export_grad_commandline (output);
+
   // No reslicing required, so just modify the header and do a straight copy of the data
   } else {
 
@@ -675,6 +696,8 @@ void run ()
       if (modulate_jac)
         apply_linear_jacobian (output, transform);
     }
+
+    DWI::export_grad_commandline (output);
   }
 }
 

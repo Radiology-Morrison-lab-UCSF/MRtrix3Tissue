@@ -1,4 +1,4 @@
-/* Copyright (c) 2008-2019 the MRtrix3 contributors.
+/* Copyright (c) 2008-2022 the MRtrix3 contributors.
  *
  * This Source Code Form is subject to the terms of the Mozilla Public
  * License, v. 2.0. If a copy of the MPL was not distributed with this
@@ -33,6 +33,7 @@ namespace MR
           Base (header),
           bytes_per_segment (0) { }
         Default (Default&&) noexcept = default;
+        Default& operator=(Default&&) = delete;
 
       protected:
         vector<std::shared_ptr<File::MMap> > mmaps;

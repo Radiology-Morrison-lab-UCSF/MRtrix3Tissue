@@ -1,4 +1,4 @@
-/* Copyright (c) 2008-2019 the MRtrix3 contributors.
+/* Copyright (c) 2008-2022 the MRtrix3 contributors.
  *
  * This Source Code Form is subject to the terms of the Mozilla Public
  * License, v. 2.0. If a copy of the MPL was not distributed with this
@@ -35,6 +35,23 @@ namespace MR {
 
       std::unique_ptr<MR::ImageIO::Base> dicom_to_mapper (MR::Header& H, vector<std::shared_ptr<Series>>& series)
       {
+        //ENVVAR name: MRTRIX_PRESERVE_PHILIPS_ISO
+        //ENVVAR Do not remove the synthetic isotropically-weighted diffusion
+        //ENVVAR image often added at the end of the series on Philips
+        //ENVVAR scanners. By default, these images are removed from the series
+        //ENVVAR to prevent errors in downstream processing. If this
+        //ENVVAR environment variable is set, these images will be preserved in
+        //ENVVAR the output.
+        //ENVVAR
+        //ENVVAR Note that it can be difficult to ascertain which volume is the
+        //ENVVAR synthetic isotropically-weighed image, since its DW encoding
+        //ENVVAR will normally have been modified from its initial value
+        //ENVVAR (e.g. [ 0 0 0 1000 ] for a b=1000 acquisition) to b=0 due to
+        //ENVVAR b-value scaling.
+        bool preserve_philips_iso = ( getenv ("MRTRIX_PRESERVE_PHILIPS_ISO") != nullptr );
+
+
+
         assert (series.size() > 0);
         std::unique_ptr<MR::ImageIO::Base> io_handler;
 
@@ -52,7 +69,7 @@ namespace MR {
         vector<Frame*> frames;
 
         // loop over series list:
-        for (const auto series_it : series) {
+        for (const auto& series_it : series) {
           try {
             series_it->read();
           }
@@ -77,13 +94,18 @@ namespace MR {
               std::sort (image_it->frames.begin(), image_it->frames.end(), compare_ptr_contents());
               for (auto frame_it : image_it->frames)
                 if (frame_it->image_type == series_it->image_type)
-                  frames.push_back (frame_it.get());
+                  if (!frame_it->is_philips_iso() || preserve_philips_iso)
+                    frames.push_back (frame_it.get());
             }
             // otherwise add image frame:
             else
-              frames.push_back (image_it.get());
+              if (!image_it->is_philips_iso() || preserve_philips_iso)
+                frames.push_back (image_it.get());
           }
         }
+
+        if (!frames.size())
+          throw Exception ("no DICOM frames found!");
 
         auto dim = Frame::count (frames);
 
@@ -144,13 +166,56 @@ namespace MR {
         import_parameter ("FlipAngle",
                           [] (Frame* f) -> default_type { return f->flip_angle; },
                           1.0);
+        import_parameter ("InversionTime",
+                          [] (Frame* f) -> default_type { return f->inversion_time; },
+                          0.001);
+        import_parameter ("PartialFourier",
+                          [] (Frame* f) -> default_type { return f->partial_fourier; },
+                          1.0);
+        import_parameter ("PixelBandwidth",
+                          [] (Frame* f) -> default_type { return f->pixel_bandwidth; },
+                          1.0);
         import_parameter ("RepetitionTime",
                           [] (Frame* f) -> default_type { return f->repetition_time; },
                           0.001);
 
-        size_t nchannels = image.frames.size() ? 1 : image.data_size / (frame.dim[0] * frame.dim[1] * (frame.bits_alloc/8));
-        if (nchannels > 1)
-          INFO ("data segment is larger than expected from image dimensions - interpreting as multi-channel data");
+        if (std::isfinite (frame.bvalue)) {
+          if (frame.bipolar_flag) {
+            switch (frame.bipolar_flag) {
+              case 1: H.keyval()["DiffusionScheme"] = "Bipolar"; break;
+              case 2: H.keyval()["DiffusionScheme"] = "Monopolar"; break;
+              default: WARN("Unsupported DWI polarity scheme flag (" + str(frame.bipolar_flag) + ")");
+            }
+          } else if (frame.readoutmode_flag) {
+            switch (frame.readoutmode_flag) {
+              case 1: H.keyval()["DiffusionScheme"] = "Monopolar"; break;
+              case 2: H.keyval()["DiffusionScheme"] = "Bipolar"; break;
+              default: WARN("Unsupported DWI readout mode flag (" + str(frame.readoutmode_flag) + ")");
+            }
+          }
+        }
+
+        if (frame.flip_angles.size() > 1) {
+          // Are all entries in the vector the same?
+          bool all_equal = true;
+          for (size_t index = 1; index != frame.flip_angles.size(); ++index) {
+            if (frame.flip_angles[index] != frame.flip_angles[0]) {
+              all_equal = false;
+              break;
+            }
+          }
+          if (!all_equal)
+            H.keyval()["FlipAngle"] = join (frame.flip_angles, ",");
+        }
+
+        size_t nchannels = image.samples_per_pixel;
+        if (nchannels == 1 && !image.frames.size()) {
+          // only guess number of samples per pixel if not explicitly set in
+          // DICOM and not using multi-frame:
+          nchannels = image.data_size / (frame.dim[0] * frame.dim[1] * (frame.bits_alloc/8));
+          if (nchannels > 1)
+            INFO ("data segment is larger than expected from image dimensions - interpreting as multi-channel data");
+        }
 
         H.ndim() = 3 + (dim[0]*dim[2]>1) + (nchannels>1);
 
@@ -223,7 +288,12 @@ namespace MR {
             H.keyval()["dw_scheme"] = dw_scheme;
         }
 
-        PhaseEncoding::set_scheme (H, Frame::get_PE_scheme (frames, dim[1]));
+        try {
+          PhaseEncoding::set_scheme (H, Frame::get_PE_scheme (frames, dim[1]));
+        } catch (Exception& e) {
+          e.display (3);
+          WARN ("Malformed phase encoding information; ignored");
+        }
 
         bool inconsistent_scaling = false;
         for (size_t n = 1; n < frames.size(); ++n) { // check consistency of data scaling:
@@ -238,15 +308,29 @@ namespace MR {
         }
 
         // Slice timing may come from a few different potential sources
-        vector<float> slices_timing;
+        vector<std::string> slices_timing_str;
+        vector<float> slices_timing_float;
         if (image.images_in_mosaic) {
           if (image.mosaic_slices_timing.size() < image.images_in_mosaic) {
             WARN ("Number of entries in mosaic slice timing (" + str(image.mosaic_slices_timing.size()) + ") is smaller than number of images in mosaic (" + str(image.images_in_mosaic) + "); omitting");
           } else {
             DEBUG ("Taking slice timing information from CSA mosaic info");
             // CSA mosaic defines these in ms; we want them in s
-            for (size_t n = 0; n < image.images_in_mosaic; ++n)
-              slices_timing.push_back (0.001 * image.mosaic_slices_timing[n]);
+            // We also want to avoid floating-point precision issues resulting from
+            //   base-10 scaling
+            for (size_t n = 0; n < image.images_in_mosaic; ++n) {
+              slices_timing_float.push_back (0.001 * image.mosaic_slices_timing[n]);
+              std::string temp = str(int(10.0 * image.mosaic_slices_timing[n]));
+              const bool neg = image.mosaic_slices_timing[n] < 0.0;
+              if (neg)
+                temp.erase (temp.begin());
+              while (temp.size() < 5)
+                temp.insert (temp.begin(), '0');
+              temp.insert (temp.begin() + temp.size() - 4, '.');
+              if (neg)
+                temp.insert (temp.begin(), '-');
+              slices_timing_str.push_back (temp);
+            }
           }
         } else if (std::isfinite (frame.time_after_start)) {
           DEBUG ("Taking slice timing information from CSA TimeAfterStart field");
@@ -254,20 +338,21 @@ namespace MR {
           for (size_t n = 0; n != dim[1]; ++n)
             min_time_after_start = std::min (min_time_after_start, frames[n]->time_after_start);
           for (size_t n = 0; n != dim[1]; ++n)
-            slices_timing.push_back (frames[n]->time_after_start - min_time_after_start);
-          H.keyval()["SliceTiming"] = join (slices_timing, ",");
+            slices_timing_float.push_back (frames[n]->time_after_start - min_time_after_start);
         } else if (std::isfinite (static_cast<default_type>(frame.acquisition_time))) {
           DEBUG ("Estimating slice timing from DICOM AcquisitionTime field");
           default_type min_acquisition_time = std::numeric_limits<default_type>::infinity();
           for (size_t n = 0; n != dim[1]; ++n)
             min_acquisition_time = std::min (min_acquisition_time, default_type(frames[n]->acquisition_time));
           for (size_t n = 0; n != dim[1]; ++n)
-            slices_timing.push_back (default_type(frames[n]->acquisition_time) - min_acquisition_time);
+            slices_timing_float.push_back (default_type(frames[n]->acquisition_time) - min_acquisition_time);
         }
-        if (slices_timing.size()) {
-          const size_t slices_acquired_at_zero = std::count (slices_timing.begin(), slices_timing.end(), 0.0f);
+        if (slices_timing_float.size()) {
+          const size_t slices_acquired_at_zero = std::count (slices_timing_float.begin(), slices_timing_float.end(), 0.0f);
           if (slices_acquired_at_zero < (image.images_in_mosaic ? image.images_in_mosaic : dim[1])) {
-            H.keyval()["SliceTiming"] = join (slices_timing, ",");
+            H.keyval()["SliceTiming"] = slices_timing_str.size() ?
+                                        join (slices_timing_str, ",") :
+                                        join (slices_timing_float, ",");
             H.keyval()["MultibandAccelerationFactor"] = str (slices_acquired_at_zero);
             H.keyval()["SliceEncodingDirection"] = "k";
           } else {

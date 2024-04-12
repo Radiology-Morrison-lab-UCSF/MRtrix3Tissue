@@ -1,4 +1,4 @@
-/* Copyright (c) 2008-2019 the MRtrix3 contributors.
+/* Copyright (c) 2008-2022 the MRtrix3 contributors.
  *
  * This Source Code Form is subject to the terms of the Mozilla Public
  * License, v. 2.0. If a copy of the MPL was not distributed with this
@@ -140,7 +140,7 @@ void parse_itk_trafo (const std::string& itk_file, TransformationType& transform
   // QuaternionRigidTransform_double_3_3?
   // QuaternionRigidTransform_float_3_3?
 
-  File::KeyValue file (itk_file, first_line.c_str());
+  File::KeyValue::Reader file (itk_file, first_line.c_str());
   std::string line;
   size_t invalid (2);
   while (file.next()) {

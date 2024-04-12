@@ -1,4 +1,4 @@
-/* Copyright (c) 2008-2019 the MRtrix3 contributors.
+/* Copyright (c) 2008-2022 the MRtrix3 contributors.
  *
  * This Source Code Form is subject to the terms of the Mozilla Public
  * License, v. 2.0. If a copy of the MPL was not distributed with this
@@ -43,20 +43,17 @@ namespace MR
 
 
 
-      value_type Wrapper::operator() (const vector_type& in, vector_type& out) const
+      void Wrapper::operator() (in_column_type in, out_column_type out) const
       {
-        out = vector_type::Zero (in.size());
+        out.setZero();
         const value_type max_input_value = in.maxCoeff();
         for (value_type h = dH; (h-dH) < max_input_value; h += dH) {
-          vector_type temp;
-          const value_type max = (*enhancer) (in, h, temp);
-          if (max) {
-            const value_type h_multiplier = std::pow (h, H);
-            for (size_t index = 0; index != size_t(in.size()); ++index)
-              out[index] += (std::pow (temp[index], E) * h_multiplier);
-          }
+          matrix_type temp (in.size(), 1);
+          (*enhancer) (in, h, temp.col(0));
+          const value_type h_multiplier = std::pow (h, H);
+          for (size_t index = 0; index != size_t(in.size()); ++index)
+            out[index] += (std::pow (temp(index,0), E) * h_multiplier);
         }
-        return out.maxCoeff();
       }
 
 
