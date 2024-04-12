@@ -15,12 +15,6 @@
 #
 # For more details, see http://www.mrtrix.org/.
 
-cat > $LOGFILE <<EOD
--------------------------------------------
-  Testing MRtrix3Tissue installation
--------------------------------------------
-
-
 # when testing a binary release, you can use the MRTRIX_BINDIR environment
 # variable to point to the location of the executables you want to test. You'll
 # need to ensure the same commit/tag is checked out on this repo for the
@@ -85,13 +79,12 @@ esac
 
 LOGFILE="testing_"$1".log"
 echo logging to \""$LOGFILE"\"
+
 cat > $LOGFILE <<EOD
-------------------------------------------
-  Testing MRtrix3 $teststring
-------------------------------------------
-
+-------------------------------------------
+  Testing MRtrix3Tissue installation $teststring
+-------------------------------------------
 EOD
-
 
 if [ ! -z $datadir ]; then
   echo -n "checking for requisite test data... "
