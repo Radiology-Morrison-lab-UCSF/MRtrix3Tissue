@@ -1,4 +1,4 @@
-/* Copyright (c) 2008-2019 the MRtrix3 contributors.
+/* Copyright (c) 2008-2021 the MRtrix3 contributors.
  *
  * This Source Code Form is subject to the terms of the Mozilla Public
  * License, v. 2.0. If a copy of the MPL was not distributed with this
@@ -18,6 +18,7 @@
 #define __file_json_utils_h__
 
 #include "file/json.h"
+#include "file/key_value.h"
 
 namespace MR
 {
@@ -28,8 +29,19 @@ namespace MR
     namespace JSON
     {
 
-      void load (Header&, const std::string&);
-      void save (const Header&, const std::string&);
+      void load (Header& H, const std::string& path);
+      void save (const Header& H, const std::string& json_path, const std::string& image_path);
+
+      KeyValues read (const nlohmann::json& json,
+                      const KeyValues& preexisting = KeyValues());
+      void read (const nlohmann::json& json,
+                 Header& header,
+                 const bool realign);
+
+      void write (const KeyValues& keyval, nlohmann::json& json);
+      void write (const Header& header,
+                  nlohmann::json& json,
+                  const std::string& image_path);
 
     }
   }

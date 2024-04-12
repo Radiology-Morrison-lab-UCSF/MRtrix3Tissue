@@ -1,4 +1,4 @@
-/* Copyright (c) 2008-2019 the MRtrix3 contributors.
+/* Copyright (c) 2008-2021 the MRtrix3 contributors.
  *
  * This Source Code Form is subject to the terms of the Mozilla Public
  * License, v. 2.0. If a copy of the MPL was not distributed with this
@@ -34,16 +34,20 @@ namespace MR
             Q_OBJECT
 
           public:
-              Ortho () : 
-                projections (3, projection),
-                current_plane (0) { }
-
+            Ortho ();
             virtual void paint (Projection& projection);
 
             virtual void mouse_press_event ();
             virtual void slice_move_event (float x);
             virtual void panthrough_event ();
             virtual const Projection* get_current_projection () const;
+            virtual void request_update_mode_gui (ModeGuiVisitor& visitor) const {
+                 visitor.update_ortho_mode_gui(*this); }
+
+            static bool show_as_row;
+
+          public slots:
+            void set_show_as_row_slot (bool state);
 
           protected:
             vector<Projection> projections;
@@ -59,7 +63,6 @@ namespace MR
 }
 
 #endif
-
 
 
 

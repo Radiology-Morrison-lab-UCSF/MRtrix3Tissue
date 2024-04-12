@@ -1,4 +1,4 @@
-/* Copyright (c) 2008-2019 the MRtrix3 contributors.
+/* Copyright (c) 2008-2021 the MRtrix3 contributors.
  *
  * This Source Code Form is subject to the terms of the Mozilla Public
  * License, v. 2.0. If a copy of the MPL was not distributed with this
@@ -130,6 +130,7 @@ LUT::file_format LUT::guess_file_format (const std::string& path)
   size_t line_counter = 0;
   while (std::getline (in_lut, line)) {
     ++line_counter;
+    line = strip (line);
     if (line.size() > 1 && line[0] != '#') {
       // Before splitting by whitespace, need to capture any strings that are
       //   encased within quotation marks

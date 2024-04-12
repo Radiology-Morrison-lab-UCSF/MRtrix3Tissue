@@ -1,4 +1,4 @@
-/* Copyright (c) 2008-2019 the MRtrix3 contributors.
+/* Copyright (c) 2008-2021 the MRtrix3 contributors.
  *
  * This Source Code Form is subject to the terms of the Mozilla Public
  * License, v. 2.0. If a copy of the MPL was not distributed with this
@@ -131,7 +131,7 @@ namespace MR
           // Trying a heuristic for now; go for a sort size of 1000 following initial sort, assuming half of all
           //   remaining streamlines have a negative gradient
 
-          const track_t sort_size = std::min (num_tracks() / double(Thread::number_of_threads()), std::round (2000.0 * double(num_tracks()) / double(tracks_remaining)));
+          const track_t sort_size = std::min (std::ceil(num_tracks() / double(Thread::number_of_threads())), std::round (2000.0 * double(num_tracks()) / double(tracks_remaining)));
           MT_gradient_vector_sorter sorter (gradient_vector, sort_size);
 
           // Remove candidate streamlines one at a time, and correspondingly modify the fixels to which they were attributed
@@ -179,9 +179,14 @@ namespace MR
             } else { // Proceed as normal
 
               const vector<Cost_fn_gradient_sort>::iterator candidate = sorter.get();
+              if (candidate == gradient_vector.end()) {
+                recalculate = POS_GRADIENT;
+                if (!removed_this_iteration)
+                  another_iteration = false;
+                goto end_iteration;
+              }
 
               const track_t candidate_index = candidate->get_tck_index();
-
               if (candidate->get_cost_gradient() >= 0.0) {
                 recalculate = POS_GRADIENT;
                 if (!removed_this_iteration)
@@ -354,11 +359,11 @@ namespace MR
 
 
 
-      void SIFTer::set_regular_outputs (const vector<int>& in, const bool b)
+      void SIFTer::set_regular_outputs (const vector<uint32_t>& in, const bool b)
       {
-        for (vector<int>::const_iterator i = in.begin(); i != in.end(); ++i) {
-          if (*i > 0 && *i <= (int)contributions.size())
-            output_at_counts.push_back (*i);
+        for (auto i : in) {
+          if (i > 0 && i <= contributions.size())
+            output_at_counts.push_back (i);
         }
         sort (output_at_counts.begin(), output_at_counts.end());
         output_debug = b;

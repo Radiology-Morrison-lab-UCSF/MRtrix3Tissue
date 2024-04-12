@@ -1,4 +1,4 @@
-/* Copyright (c) 2008-2019 the MRtrix3 contributors.
+/* Copyright (c) 2008-2021 the MRtrix3 contributors.
  *
  * This Source Code Form is subject to the terms of the Mozilla Public
  * License, v. 2.0. If a copy of the MPL was not distributed with this
@@ -46,7 +46,7 @@ void usage ()
     "where square brackets denote the position of the numbering for the files, "
     "for example:"
 
-   + "$ tckconvert input.tck output-[].txt"
+   + "$ tckconvert input.tck output-'[]'.txt"
 
    + "will produce files named output-0000.txt, output-0001.txt, output-0002.txt, ...";
 
@@ -121,7 +121,7 @@ class VTKWriter: public WriterInterface<float> { MEMALIGN(VTKWriter)
       current_index += tck.size();
       track_list.push_back (std::pair<size_t,size_t> (start_index, current_index));
 
-      for (auto pos : tck) {
+      for (const auto& pos : tck) {
         VTKout << pos[0] << " " << pos[1] << " " << pos[2] << "\n";
       }
       return true;
@@ -131,7 +131,7 @@ class VTKWriter: public WriterInterface<float> { MEMALIGN(VTKWriter)
       try {
         // write out list of tracks:
         VTKout << "LINES " << track_list.size() << " " << track_list.size() + current_index << "\n";
-        for (const auto track : track_list) {
+        for (const auto& track : track_list) {
           VTKout << track.second - track.first << " " << track.first;
           for (size_t i = track.first + 1; i < track.second; ++i)
             VTKout << " " << i;
@@ -297,7 +297,7 @@ class ASCIIWriter: public WriterInterface<float> { MEMALIGN(ASCIIWriter)
 
   private:
     File::NameParser parser;
-    vector<int> count;
+    vector<uint32_t> count;
 
 };
 

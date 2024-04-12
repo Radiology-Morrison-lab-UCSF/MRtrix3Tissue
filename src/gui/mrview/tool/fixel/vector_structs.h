@@ -1,4 +1,4 @@
-/* Copyright (c) 2008-2019 the MRtrix3 contributors.
+/* Copyright (c) 2008-2021 the MRtrix3 contributors.
  *
  * This Source Code Form is subject to the terms of the Mozilla Public
  * License, v. 2.0. If a copy of the MPL was not distributed with this
@@ -36,6 +36,13 @@ namespace MR
           float current_min = value_min, current_max = value_max;
           vector<float> buffer_store;
 
+
+          void clear () {
+            buffer_store.clear();
+            loaded = false;
+            current_min = value_min = std::numeric_limits<float>::max ();
+            current_max = value_max = std::numeric_limits<float>::min ();
+          }
 
           void add_value (float value) {
             buffer_store.push_back (value);

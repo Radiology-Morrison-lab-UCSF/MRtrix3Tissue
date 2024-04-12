@@ -1,4 +1,4 @@
-/* Copyright (c) 2008-2019 the MRtrix3 contributors.
+/* Copyright (c) 2008-2021 the MRtrix3 contributors.
  *
  * This Source Code Form is subject to the terms of the Mozilla Public
  * License, v. 2.0. If a copy of the MPL was not distributed with this
@@ -45,11 +45,11 @@ namespace MR {
 
 
     template <class MatrixType>
-    void check (const MatrixType& in, const node_t num_nodes)
+    void check (const MatrixType& in, const node_t num_nodes = 0)
     {
       if (in.rows() != in.cols())
         throw Exception ("Connectome matrix is not square (" + str(in.rows()) + " x " + str(in.cols()) + ")");
-      if (in.rows() != num_nodes)
+      if (num_nodes && (in.rows() != num_nodes))
         throw Exception ("Connectome matrix contains " + str(in.rows()) + " nodes; expected " + str(num_nodes));
     }
 

@@ -1,4 +1,4 @@
-/* Copyright (c) 2008-2019 the MRtrix3 contributors.
+/* Copyright (c) 2008-2021 the MRtrix3 contributors.
  *
  * This Source Code Form is subject to the terms of the Mozilla Public
  * License, v. 2.0. If a copy of the MPL was not distributed with this
@@ -79,15 +79,8 @@ namespace MR
           if (from_env)
             return to<std::mt19937::result_type> (from_env);
 
-#ifdef MRTRIX_WINDOWS
-          struct timeval tv;
-          gettimeofday (&tv, nullptr);
-          return tv.tv_sec ^ tv.tv_usec;
-#else
-          // TODO check whether this does in fact work on Windows...
           std::random_device rd;
           return rd();
-#endif
         }
 
 

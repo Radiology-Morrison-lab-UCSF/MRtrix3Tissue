@@ -1,4 +1,4 @@
-/* Copyright (c) 2008-2019 the MRtrix3 contributors.
+/* Copyright (c) 2008-2021 the MRtrix3 contributors.
  *
  * This Source Code Form is subject to the terms of the Mozilla Public
  * License, v. 2.0. If a copy of the MPL was not distributed with this
@@ -19,7 +19,7 @@
 
 #include <QString>
 
-#include "mrtrix.h"
+#include "gui/gui.h"
 
 namespace MR
 {
@@ -48,7 +48,7 @@ namespace MR
           FileDataVector& clear();
 
           const QString& get_name() const { return name; }
-          void set_name (const std::string& s) { name = s.c_str(); }
+          void set_name (const std::string& s) { name = qstr (s); }
 
           float get_min()  const { return min; }
           float get_mean() const { return mean; }

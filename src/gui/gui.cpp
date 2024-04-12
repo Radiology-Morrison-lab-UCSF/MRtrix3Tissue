@@ -1,4 +1,4 @@
-/* Copyright (c) 2008-2019 the MRtrix3 contributors.
+/* Copyright (c) 2008-2021 the MRtrix3 contributors.
  *
  * This Source Code Form is subject to the terms of the Mozilla Public
  * License, v. 2.0. If a copy of the MPL was not distributed with this
@@ -31,19 +31,18 @@ namespace MR
 
 
 
-    App::App (int& cmdline_argc, char** cmdline_argv)
+    App::App (int& cmdline_argc, char** cmdline_argv) :
+      QApplication (cmdline_argc, cmdline_argv)
     {
       application = this;
       ::MR::File::Config::init ();
       ::MR::GUI::GL::set_default_context ();
 
-      new QApplication (cmdline_argc, cmdline_argv);
-
       QLocale::setDefault(QLocale::c());
       std::locale::global (std::locale::classic());
       std::setlocale (LC_ALL, "C");
 
-      qApp->setAttribute (Qt::AA_DontCreateNativeWidgetSiblings);
+      setAttribute (Qt::AA_DontCreateNativeWidgetSiblings);
     }
 
 

@@ -1,4 +1,4 @@
-/* Copyright (c) 2008-2019 the MRtrix3 contributors.
+/* Copyright (c) 2008-2021 the MRtrix3 contributors.
  *
  * This Source Code Form is subject to the terms of the Mozilla Public
  * License, v. 2.0. If a copy of the MPL was not distributed with this
@@ -46,7 +46,7 @@ namespace MR
       if (!Path::has_suffix (H.name(), ".msh") && !Path::has_suffix (H.name(), ".msf"))
         return std::unique_ptr<ImageIO::Base>();
 
-      File::KeyValue kv (H.name(), "mrtrix sparse image");
+      File::KeyValue::Reader kv (H.name(), "mrtrix sparse image");
 
       read_mrtrix_header (H, kv);
 
@@ -77,7 +77,7 @@ namespace MR
       get_mrtrix_file_path (H, "file", image_fname, image_offset);
 
       File::ParsedName::List image_list;
-      vector<int> image_num = image_list.parse_scan_check (image_fname);
+      image_list.parse_scan_check (image_fname);
 
       get_mrtrix_file_path (H, "sparse_file", sparse_fname, sparse_offset);
 
@@ -141,7 +141,7 @@ namespace MR
       std::string image_path, sparse_path;
       if (single_file) {
 
-        image_offset = out.tellp() + int64_t(54);
+        image_offset = int64_t(out.tellp()) + int64_t(54);
         image_offset += ((4 - (image_offset % 4)) % 4);
         sparse_offset = image_offset + footprint(H);
 

@@ -1,4 +1,4 @@
-/* Copyright (c) 2008-2019 the MRtrix3 contributors.
+/* Copyright (c) 2008-2021 the MRtrix3 contributors.
  *
  * This Source Code Form is subject to the terms of the Mozilla Public
  * License, v. 2.0. If a copy of the MPL was not distributed with this
@@ -80,7 +80,7 @@ namespace MR
 
 
 
-    bool next_keyvalue (File::KeyValue& kv, std::string& key, std::string& value)
+    bool next_keyvalue (File::KeyValue::Reader& kv, std::string& key, std::string& value)
     {
       key.clear(); value.clear();
       if (!kv.next())

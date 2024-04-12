@@ -4,6 +4,26 @@
 List of MRtrix3 environment variables
 ##########################################
 
+.. envvar:: DICOM_ID
+
+     when reading DICOM data, match the PatientID entry against
+     the string provided
+
+.. envvar:: DICOM_PATIENT
+
+     when reading DICOM data, match the PatientName entry against
+     the string provided
+
+.. envvar:: DICOM_SERIES
+
+     when reading DICOM data, match the SeriesName entry against
+     the string provided
+
+.. envvar:: DICOM_STUDY
+
+     when reading DICOM data, match the StudyName entry against
+     the string provided
+
 .. envvar:: MRTRIX_CONFIGFILE
 
      This can be used to set the location of the system-wide
@@ -11,6 +31,12 @@ List of MRtrix3 environment variables
      This can be useful for deployments where access to the system's
      ``/etc`` folder is problematic, or to allow different versions of
      the software to have different configurations, etc.
+
+.. envvar:: MRTRIX_LOGLEVEL
+
+     Set the default terminal verbosity. Default terminal verbosity
+     is 1. This has the same effect as the ``-quiet`` (0),
+     ``-info`` (2) or ``-debug`` (3) comand-line options.
 
 .. envvar:: MRTRIX_NOSIGNALS
 
@@ -30,7 +56,8 @@ List of MRtrix3 environment variables
 .. envvar:: MRTRIX_QUIET
 
      Do not display information messages or progress status. This has
-     the same effect as the ``-quiet`` command-line option.
+     the same effect as the ``-quiet`` command-line option. If set,
+     supersedes the MRTRIX_LOGLEVEL environment variable.
 
 .. envvar:: MRTRIX_RNG_SEED
 

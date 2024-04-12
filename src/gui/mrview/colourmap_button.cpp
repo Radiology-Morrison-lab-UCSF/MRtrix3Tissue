@@ -1,4 +1,4 @@
-/* Copyright (c) 2008-2019 the MRtrix3 contributors.
+/* Copyright (c) 2008-2021 the MRtrix3 contributors.
  *
  * This Source Code Form is subject to the terms of the Mozilla Public
  * License, v. 2.0. If a copy of the MPL was not distributed with this
@@ -14,9 +14,9 @@
  * For more details, see http://www.mrtrix.org/.
  */
 
-#include "gui/mrview/colourmap_button.h"
-#include "gui/mrview/colourmap.h"
 #include "math/rng.h"
+#include "gui/gui.h"
+#include "gui/mrview/colourmap_button.h"
 
 
 namespace MR
@@ -35,6 +35,7 @@ ColourMapButton::ColourMapButton(QWidget* parent, ColourMapButtonObserver& obs,
     QToolButton(parent),
     observer(obs),
     core_colourmaps_actions(new QActionGroup(parent)),
+    invert_scale_action (nullptr),
     fixed_colour_index (0)
 {
     setToolTip(tr("Colourmap menu"));
@@ -61,7 +62,7 @@ void ColourMapButton::init_core_menu_items(bool create_shortcuts)
         addAction(action);
 
         if (create_shortcuts)
-          action->setShortcut(QObject::tr(std::string ("Ctrl+" + str (n+1)).c_str()));
+          action->setShortcut (qstr ("Ctrl+" + str (n+1)));
 
         colourmap_actions.push_back (action);
         n++;
@@ -107,7 +108,7 @@ void ColourMapButton::init_special_colour_menu_items(bool create_shortcuts)
         addAction(action);
 
         if (create_shortcuts)
-          action->setShortcut(QObject::tr(std::string ("Ctrl+" + str (n+1)).c_str()));
+          action->setShortcut (qstr ("Ctrl+" + str (n+1)));
 
         colourmap_actions.push_back(action);
         n++;
@@ -122,9 +123,9 @@ void ColourMapButton::init_customise_state_menu_items()
     show_colour_bar->setChecked(true);
     addAction(show_colour_bar);
 
-    auto invert_scale = colourmap_menu->addAction(tr("Invert"), this, SLOT(invert_colourmap_slot(bool)));
-    invert_scale->setCheckable(true);
-    addAction(invert_scale);
+    invert_scale_action = colourmap_menu->addAction(tr("Invert"), this, SLOT(invert_colourmap_slot(bool)));
+    invert_scale_action->setCheckable(true);
+    addAction(invert_scale_action);
 
     QAction* reset_intensity = colourmap_menu->addAction(tr("Reset intensity"), this, SLOT(reset_intensity_slot()));
     addAction(reset_intensity);
@@ -160,6 +161,12 @@ void ColourMapButton::set_colourmap_index(size_t index)
         action->setChecked(true);
         select_colourmap_slot(action);
     }
+}
+
+void ColourMapButton::set_scale_inverted(bool yesno)
+{
+    assert (invert_scale_action != nullptr);
+    invert_scale_action->setChecked (yesno);
 }
 
 

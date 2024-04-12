@@ -1,4 +1,4 @@
-/* Copyright (c) 2008-2019 the MRtrix3 contributors.
+/* Copyright (c) 2008-2021 the MRtrix3 contributors.
  *
  * This Source Code Form is subject to the terms of the Mozilla Public
  * License, v. 2.0. If a copy of the MPL was not distributed with this
@@ -18,10 +18,11 @@
 #define __gui_mrview_displayable_h__
 
 #include "math/math.h"
+
+#include "colourmap.h"
 #include "gui/opengl/gl.h"
 #include "gui/opengl/shader.h"
 #include "gui/projection.h"
-#include "gui/mrview/colourmap.h"
 
 
 namespace MR

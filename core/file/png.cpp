@@ -1,4 +1,4 @@
-/* Copyright (c) 2008-2019 the MRtrix3 contributors.
+/* Copyright (c) 2008-2021 the MRtrix3 contributors.
  *
  * This Source Code Form is subject to the terms of the Mozilla Public
  * License, v. 2.0. If a copy of the MPL was not distributed with this
@@ -48,7 +48,8 @@ namespace MR
       {
         FILE* infile = fopen (filename.c_str(), "rb");
         unsigned char sig[8];
-        fread (sig, 1, 8, infile);
+        if (fread (sig, 1, 8, infile) < 8)
+          throw Exception ("error reading from PNG file \"" + filename + "\"");
         const int sigcmp = png_sig_cmp(sig, 0, 8);
         if (sigcmp) {
           fclose (infile);

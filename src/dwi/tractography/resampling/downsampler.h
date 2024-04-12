@@ -1,4 +1,4 @@
-/* Copyright (c) 2008-2019 the MRtrix3 contributors.
+/* Copyright (c) 2008-2021 the MRtrix3 contributors.
  *
  * This Source Code Form is subject to the terms of the Mozilla Public
  * License, v. 2.0. If a copy of the MPL was not distributed with this
@@ -33,11 +33,11 @@ namespace MR {
         { MEMALIGN(Downsampler)
 
           public:
-            Downsampler () : ratio (1) { }
+            Downsampler () : ratio (0) { }
             Downsampler (const size_t downsample_ratio) : ratio (downsample_ratio) { }
 
             bool operator() (const Streamline<>&, Streamline<>&) const override;
-            bool valid() const override { return (ratio > 1); }
+            bool valid() const override { return (ratio >= 1); }
 
             // This version guarantees that the seed point is retained, and
             //   updates the index of the seed point appropriately

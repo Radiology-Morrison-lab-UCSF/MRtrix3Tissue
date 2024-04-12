@@ -1,4 +1,4 @@
-/* Copyright (c) 2008-2019 the MRtrix3 contributors.
+/* Copyright (c) 2008-2021 the MRtrix3 contributors.
  *
  * This Source Code Form is subject to the terms of the Mozilla Public
  * License, v. 2.0. If a copy of the MPL was not distributed with this
@@ -23,6 +23,7 @@
 #include "dwi/directions/set.h"
 #include "dwi/tractography/streamline.h"
 #include "dwi/tractography/rng.h"
+#include "dwi/tractography/roi.h"
 #include "dwi/tractography/tracking/generated_track.h"
 #include "dwi/tractography/tracking/method.h"
 #include "dwi/tractography/tracking/shared.h"
@@ -113,11 +114,16 @@ namespace MR
               S (shared),
               method (shared),
               track_excluded (false),
-              track_included (S.properties.include.size(), false) { }
+              include_visitation (S.properties.include, S.properties.ordered_include) { }
+
+            Exec (const Exec& that) :
+              S (that.S),
+              method (that.method),
+              track_excluded (false),
+              include_visitation (S.properties.include, S.properties.ordered_include) { }
 
 
             bool operator() (GeneratedTrack& item) {
-              rng = &thread_local_RNG;
               if (!seed_track (item))
                 return false;
               if (track_excluded) {
@@ -129,7 +135,7 @@ namespace MR
               if (track_rejected (item)) {
                 item.clear();
                 item.set_status (GeneratedTrack::status_t::TRACK_REJECTED);
-              } else if (S.downsampler.valid() || (S.is_act() && S.act().crop_at_gmwmi())) {
+              } else if (S.downsampler.get_ratio() > 1 || (S.is_act() && S.act().crop_at_gmwmi())) {
                 S.downsampler (item);
                 check_downsampled_length (item);
               } else {
@@ -142,10 +148,9 @@ namespace MR
           private:
 
             const typename Method::Shared& S;
-            Math::RNG thread_local_RNG;
             Method method;
             bool track_excluded;
-            vector<bool> track_included;
+            IncludeROIVisitation include_visitation;
 
 
             term_t iterate ()
@@ -170,9 +175,9 @@ namespace MR
               // If backtracking is not enabled, add streamline to include regions as it is generated
               // If it is enabled, this check can only be performed after the streamline is completed
               if (!(S.is_act() && S.act().backtrack()))
-                S.properties.include.contains (method.pos, track_included);
+                include_visitation (method.pos);
 
-              if (S.stop_on_all_include && traversed_all_include_regions())
+              if (S.stop_on_all_include && bool(include_visitation))
                 return TRAVERSE_ALL_INCLUDE;
 
               return CONTINUE;
@@ -184,7 +189,7 @@ namespace MR
             {
               tck.clear();
               track_excluded = false;
-              track_included.assign (track_included.size(), false);
+              include_visitation.reset();
               method.dir = { NaN, NaN, NaN };
 
               if (S.properties.seeds.is_finite()) {
@@ -222,7 +227,7 @@ namespace MR
               if (S.is_act() && !unidirectional)
                 unidirectional = method.act().seed_is_unidirectional (method.pos, method.dir);
 
-              S.properties.include.contains (method.pos, track_included);
+              include_visitation (method.pos);
 
               const Eigen::Vector3f seed_dir (method.dir);
               tck.push_back (method.pos);
@@ -406,12 +411,12 @@ namespace MR
 
                 if (S.act().backtrack()) {
                   for (const auto& i : tck)
-                    S.properties.include.contains (i, track_included);
+                    include_visitation (i);
                 }
 
               }
 
-              if (!traversed_all_include_regions()) {
+              if (!bool(include_visitation)) {
                 S.add_rejection (MISSED_INCLUDE_REGION);
                 return true;
               }
@@ -419,18 +424,6 @@ namespace MR
               return false;
 
             }
-
-
-
-            bool traversed_all_include_regions ()
-            {
-              for (size_t n = 0; n < track_included.size(); ++n)
-                if (!track_included[n])
-                  return false;
-              return true;
-            }
-
-
 
             bool satisfy_wm_requirement (const vector<Eigen::Vector3f>& tck)
             {
@@ -460,17 +453,13 @@ namespace MR
 
             void truncate_exit_sgm (vector<Eigen::Vector3f>& tck)
             {
-              Interpolator<Image<float>>::type source (S.source);
-
               const size_t sgm_start = tck.size() - method.act().sgm_depth;
               assert (sgm_start >= 0 && sgm_start < tck.size());
               size_t best_termination = tck.size() - 1;
               float min_value = std::numeric_limits<float>::infinity();
               for (size_t i = sgm_start; i != tck.size(); ++i) {
-                method.pos = tck[i];
-                method.get_data (source);
-                method.dir = (tck[i] - tck[i-1]).normalized();
-                const float this_value = method.get_metric();
+                const Eigen::Vector3f direction = (tck[i] - tck[i-1]).normalized();
+                const float this_value = method.get_metric (tck[i], direction);
                 if (this_value < min_value) {
                   min_value = this_value;
                   best_termination = i;

@@ -1,4 +1,4 @@
-/* Copyright (c) 2008-2019 the MRtrix3 contributors.
+/* Copyright (c) 2008-2021 the MRtrix3 contributors.
  *
  * This Source Code Form is subject to the terms of the Mozilla Public
  * License, v. 2.0. If a copy of the MPL was not distributed with this
@@ -18,8 +18,9 @@
 #define __gui_mrview_colourmap_button_h__
 
 #include "mrtrix.h"
+
+#include "colourmap.h"
 #include "gui/opengl/gl.h"
-#include "gui/mrview/colourmap.h"
 
 namespace MR
 {
@@ -29,6 +30,7 @@ namespace MRView
 {
 
 class ColourMapButton;
+
 class ColourMapButtonObserver
 { NOMEMALIGN
 public:
@@ -49,6 +51,7 @@ public:
                     bool use_special_colourmaps = true,
                     bool use_customise_state_items = true);
     void set_colourmap_index(size_t index);
+    void set_scale_inverted(bool yesno);
     void set_fixed_colour();
     vector<QAction*> colourmap_actions;
     void open_menu (const QPoint& p) { colourmap_menu->exec (p); }
@@ -64,10 +67,10 @@ private:
 
     ColourMapButtonObserver& observer;
     QActionGroup *core_colourmaps_actions;
-    ColourMap::Renderer colourbar_renderer;
 
     QMenu* colourmap_menu;
     QAction* custom_colour_action;
+    QAction* invert_scale_action;
 
     size_t fixed_colour_index;
 

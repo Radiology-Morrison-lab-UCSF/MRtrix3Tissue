@@ -1,4 +1,4 @@
-/* Copyright (c) 2008-2019 the MRtrix3 contributors.
+/* Copyright (c) 2008-2021 the MRtrix3 contributors.
  *
  * This Source Code Form is subject to the terms of the Mozilla Public
  * License, v. 2.0. If a copy of the MPL was not distributed with this
@@ -24,7 +24,7 @@ namespace MR
 
     using namespace App;
 
-    const char * field_choices[] = { "mean", "median", "std", "std_rv", "min", "max", "count", NULL };
+    const char * field_choices[] = { "mean", "median", "std", "std_rv", "min", "max", "count", nullptr };
 
     const OptionGroup Options = OptionGroup ("Statistics options")
     + Option ("output",

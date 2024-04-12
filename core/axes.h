@@ -1,4 +1,4 @@
-/* Copyright (c) 2008-2019 the MRtrix3 contributors.
+/* Copyright (c) 2008-2021 the MRtrix3 contributors.
  *
  * This Source Code Form is subject to the terms of the Mozilla Public
  * License, v. 2.0. If a copy of the MPL was not distributed with this
@@ -43,7 +43,7 @@ namespace MR
 
     //! determine the axis permutations and flips necessary to make an image
     //!   appear approximately axial
-    void get_permutation_to_make_axial (const transform_type& T, size_t perm[3], bool flip[3]);
+    void get_permutation_to_make_axial (const transform_type& T, std::array<size_t, 3>& perm, std::array<bool, 3>& flip);
 
 
 

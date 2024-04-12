@@ -1,4 +1,4 @@
-/* Copyright (c) 2008-2019 the MRtrix3 contributors.
+/* Copyright (c) 2008-2021 the MRtrix3 contributors.
  *
  * This Source Code Form is subject to the terms of the Mozilla Public
  * License, v. 2.0. If a copy of the MPL was not distributed with this
@@ -50,11 +50,11 @@ namespace MR
           }
         }
         if (index.column() == 0 && role == Qt::DisplayRole)
-          return str(index.row()).c_str();
+          return qstr (str(index.row()));
         else if (index.column() == 1 && role == Qt::DecorationRole)
           return connectome.nodes[index.row()].get_pixmap();
         else if (index.column() == 2 && role == Qt::DisplayRole)
-          return connectome.nodes[index.row()].get_name().c_str();
+          return qstr (connectome.nodes[index.row()].get_name());
         else
           return QVariant();
       }

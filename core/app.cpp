@@ -1,4 +1,4 @@
-/* Copyright (c) 2008-2019 the MRtrix3 contributors.
+/* Copyright (c) 2008-2021 the MRtrix3 contributors.
  *
  * This Source Code Form is subject to the terms of the Mozilla Public
  * License, v. 2.0. If a copy of the MPL was not distributed with this
@@ -18,6 +18,7 @@
 #include <fcntl.h>
 #include <locale>
 #include <clocale>
+#include <algorithm>
 
 
 #include "app.h"
@@ -35,6 +36,10 @@
 #define HELP_ARG_INDENT 8, 20
 #define HELP_OPTION_INDENT 2, 20
 #define HELP_EXAMPLE_INDENT 7
+
+#define MRTRIX_CORE_REFERENCE "Tournier, J.-D.; Smith, R. E.; Raffelt, D.; Tabbara, R.; Dhollander, T.; Pietsch, M.; Christiaens, D.; Jeurissen, B.; Yeh, C.-H. & Connelly, A. " \
+"MRtrix3: A fast, flexible and open software framework for medical image processing and visualisation. " \
+"NeuroImage, 2019, 202, 116137"
 
 
 namespace MR
@@ -67,7 +72,7 @@ namespace MR
 
     const char* AUTHOR = nullptr;
     const char* COPYRIGHT =
-       "Copyright (c) 2008-2019 the MRtrix3 contributors.\n"
+       "Copyright (c) 2008-2021 the MRtrix3 contributors.\n"
        "\n"
        "This Source Code Form is subject to the terms of the Mozilla Public\n"
        "License, v. 2.0. If a copy of the MPL was not distributed with this\n"
@@ -88,13 +93,24 @@ namespace MR
     std::string command_history_string;
     vector<ParsedArgument> argument;
     vector<ParsedOption> option;
+
     //ENVVAR name: MRTRIX_QUIET
     //ENVVAR Do not display information messages or progress status. This has
-    //ENVVAR the same effect as the ``-quiet`` command-line option.
-    int log_level = getenv("MRTRIX_QUIET") ? 0 : 1;
+    //ENVVAR the same effect as the ``-quiet`` command-line option. If set,
+    //ENVVAR supersedes the MRTRIX_LOGLEVEL environment variable.
+
+    //ENVVAR name: MRTRIX_LOGLEVEL
+    //ENVVAR Set the default terminal verbosity. Default terminal verbosity
+    //ENVVAR is 1. This has the same effect as the ``-quiet`` (0),
+    //ENVVAR ``-info`` (2) or ``-debug`` (3) comand-line options.
+    int log_level = getenv("MRTRIX_QUIET") ?
+                    0 :
+                    (getenv("MRTRIX_LOGLEVEL") ? to<int>(getenv("MRTRIX_LOGLEVEL")) : 1);
+
     int exit_error_code = 0;
     bool fail_on_warn = false;
     bool terminal_use_colour = true;
+    const std::thread::id main_thread_ID = std::this_thread::get_id();
 
     const char* project_version = nullptr;
     const char* project_build_date = nullptr;
@@ -172,13 +188,17 @@ namespace MR
       }
 
 
-      std::string underline (const std::string& text)
+      std::string underline (const std::string& text, bool ignore_whitespace = false)
       {
+        size_t m (0);
         std::string retval (3*text.size(), '\0');
         for (size_t n = 0; n < text.size(); ++n) {
-          retval[3*n] = '_';
-          retval[3*n+1] = 0x08U;
-          retval[3*n+2] = text[n];
+          if (ignore_whitespace and text[n]==' ')
+            retval[m++] = ' ';
+          else
+            retval[m++] = '_';
+          retval[m++] = 0x08U;
+          retval[m++] = text[n];
         }
         return retval;
       }
@@ -279,10 +299,10 @@ namespace MR
         + bold ("COPYRIGHT") + "\n"
         + paragraph ("", COPYRIGHT, HELP_PURPOSE_INDENT) + "\n"
         + [&](){
-          if (REFERENCES.size() == 0) return std::string();
           std::string s = bold ("REFERENCES") + "\n";
           for (size_t n = 0; n < REFERENCES.size(); ++n)
             s += paragraph ("", REFERENCES[n], HELP_PURPOSE_INDENT) + "\n";
+          s += paragraph ("", MRTRIX_CORE_REFERENCE, HELP_PURPOSE_INDENT) + "\n";
           return s;
         }();
     }
@@ -296,12 +316,12 @@ namespace MR
         s = bold (s) + "\n\n     ";
       else
         s += ": ";
-      s += ( format ? underline (NAME) : NAME ) + " [ options ]";
+      s += ( format ? underline (NAME, true) : NAME ) + " [ options ]";
 
       for (size_t i = 0; i < ARGUMENTS.size(); ++i) {
 
         if (ARGUMENTS[i].flags & Optional)
-          s += "[";
+          s += " [";
         s += std::string(" ") + ARGUMENTS[i].id;
 
         if (ARGUMENTS[i].flags & AllowMultiple) {
@@ -374,7 +394,7 @@ namespace MR
 
     std::string Argument::syntax (int format) const
     {
-      std::string retval = paragraph (( format ? underline (id) : id ), desc, HELP_ARG_INDENT);
+      std::string retval = paragraph (( format ? underline (id, true) : id ), desc, HELP_ARG_INDENT);
       if (format)
         retval += "\n";
       return retval;
@@ -701,21 +721,14 @@ namespace MR
       }
       s += "\n\n";
 
-      auto indent_newlines = [](std::string text) {
-        size_t index = 0;
-        while ((index = text.find("\n", index)) != std::string::npos )
-          text.replace (index, 1, "<br>");
-        return text;
-      };
-
       // Argument description:
       for (size_t i = 0; i < ARGUMENTS.size(); ++i)
-        s += std::string("- *") + ARGUMENTS[i].id + "*: " + indent_newlines (ARGUMENTS[i].desc) + "\n";
+        s += std::string("- *") + ARGUMENTS[i].id + "*: " + ARGUMENTS[i].desc + "\n";
 
       if (DESCRIPTION.size()) {
         s += "\n## Description\n\n";
         for (size_t i = 0; i < DESCRIPTION.size(); ++i)
-          s += indent_newlines (DESCRIPTION[i]) + "\n\n";
+          s += std::string (DESCRIPTION[i]) + "\n\n";
       }
 
       if (EXAMPLES.size()) {
@@ -743,7 +756,7 @@ namespace MR
         f += "**";
         if (opt.flags & AllowMultiple)
           f+= "  *(multiple uses permitted)*";
-        f += std::string("<br>") + indent_newlines (opt.desc) + "\n\n";
+        f += std::string("<br>") + opt.desc + "\n\n";
         return f;
       };
 
@@ -767,11 +780,11 @@ namespace MR
       for (size_t i = 0; i < __standard_options.size(); ++i)
         s += format_option (__standard_options[i]);
 
-      if (REFERENCES.size()) {
-        s += std::string ("## References\n\n");
-        for (size_t i = 0; i < REFERENCES.size(); ++i)
-          s += indent_newlines (REFERENCES[i]) + "\n\n";
-      }
+      s += std::string ("## References\n\n");
+      for (size_t i = 0; i < REFERENCES.size(); ++i)
+        s += std::string (REFERENCES[i]) + "\n\n";
+      s += std::string (MRTRIX_CORE_REFERENCE) + "\n\n";
+
       s += std::string("---\n\nMRtrix ") + mrtrix_version + ", built " + build_date + "\n\n"
         "\n\n**Author:** " + AUTHOR
         + "\n\n**Copyright:** " + COPYRIGHT + "\n\n";
@@ -820,13 +833,6 @@ namespace MR
       }
       s += "\n\n";
 
-      auto indent_newlines = [](std::string text) {
-        size_t index = 0;
-        while ((index = text.find("\n", index)) != std::string::npos )
-          text.replace (index, 1, "");
-        return text;
-      };
-
       // Will need more sophisticated escaping of special characters
       //   if they start popping up in argument / option descriptions
       auto escape_special = [] (std::string text) {
@@ -839,15 +845,25 @@ namespace MR
       };
 
       // Argument description:
-      for (size_t i = 0; i < ARGUMENTS.size(); ++i)
-        s += std::string("-  *") + ARGUMENTS[i].id + "*: " + escape_special (indent_newlines (ARGUMENTS[i].desc)) + "\n";
+      for (size_t i = 0; i < ARGUMENTS.size(); ++i) {
+        auto desc = split_lines (escape_special (ARGUMENTS[i].desc), false);
+        s += std::string("-  *") + ARGUMENTS[i].id + "*: " + desc[0];
+        for (size_t n = 1; n < desc.size(); ++n)
+          s += " |br|\n   " + desc[n];
+        s+= "\n";
+      }
       s += "\n";
 
 
       if (DESCRIPTION.size()) {
         s += "Description\n-----------\n\n";
-        for (size_t i = 0; i < DESCRIPTION.size(); ++i)
-          s += indent_newlines (DESCRIPTION[i]) + "\n\n";
+        for (size_t i = 0; i < DESCRIPTION.size(); ++i) {
+          auto desc = split_lines (DESCRIPTION[i], false);
+          s += desc[0];
+          for (size_t n = 1; n < desc.size(); ++n)
+            s += " |br|\n" + desc[n];
+          s += "\n\n";
+        }
       }
 
       if (EXAMPLES.size()) {
@@ -871,10 +887,14 @@ namespace MR
         std::string f = std::string ("-  **-") + opt.id;
         for (size_t a = 0; a < opt.size(); ++a)
           f += std::string (" ") + opt[a].id;
-        f += "**";
+        f += std::string("** ");
         if (opt.flags & AllowMultiple)
-          f += "  *(multiple uses permitted)*";
-        f += std::string(" ") + escape_special (indent_newlines (opt.desc)) + "\n\n";
+          f += "*(multiple uses permitted)* ";
+        auto desc = split_lines (opt.desc, false);
+        f += escape_special (desc[0]);
+        for (size_t n = 1; n < desc.size(); ++n)
+          f += " |br|\n   " + escape_special (desc[n]);
+        f += "\n\n";
         return f;
       };
 
@@ -898,11 +918,16 @@ namespace MR
       for (size_t i = 0; i < __standard_options.size(); ++i)
         s += format_option (__standard_options[i]);
 
-      if (REFERENCES.size()) {
-        s += std::string ("References\n^^^^^^^^^^\n\n");
-        for (size_t i = 0; i < REFERENCES.size(); ++i)
-          s += indent_newlines (REFERENCES[i]) + "\n\n";
+      s += std::string ("References\n^^^^^^^^^^\n\n");
+      for (size_t i = 0; i < REFERENCES.size(); ++i) {
+        auto refs = split_lines (REFERENCES[i], false);
+        s += refs[0];
+        for (size_t n = 1; n < refs.size(); ++n)
+          s += " |br|\n  " + refs[n];
+        s += "\n\n";
       }
+      s += std::string(MRTRIX_CORE_REFERENCE) + "\n\n";
+
       s += std::string("--------------\n\n") +
         "\n\n**Author:** " + (char*)AUTHOR
         + "\n\n**Copyright:** " + COPYRIGHT + "\n\n";
@@ -914,11 +939,10 @@ namespace MR
 
 
 
-
     const Option* match_option (const char* arg)
     {
-      if (arg[0] == '-' && arg[1] && !isdigit (arg[1]) && arg[1] != '.') {
-        while (*arg == '-') arg++;
+      if (consume_dash (arg) && *arg && !isdigit (*arg) && *arg != '.') {
+        while (consume_dash(arg));
         vector<const Option*> candidates;
         std::string root (arg);
 
@@ -939,6 +963,11 @@ namespace MR
           if (root == candidates[i]->id)
             return candidates[i];
 
+        // check if there is only one *unique* candidate
+        const auto cid = candidates[0]->id;
+        if ( std::all_of(++candidates.begin(), candidates.end(), [& cid](const Option* cand){return cand->id == cid;}) )
+          return candidates[0];
+
         // report something useful:
         root = "several matches possible for option \"-" + root + "\": \"-" + candidates[0]->id;
 
@@ -957,16 +986,18 @@ namespace MR
     void sort_arguments (int argc, const char* const* argv)
     {
       for (int n = 1; n < argc; ++n) {
-        const Option* opt = match_option (argv[n]);
-        if (opt) {
-          if (n + int (opt->size()) >= argc)
-            throw Exception (std::string ("not enough parameters to option \"-") + opt->id + "\"");
+        if (argv[n]) {
+          const Option* opt = match_option (argv[n]);
+          if (opt) {
+            if (n + int (opt->size()) >= argc)
+              throw Exception (std::string ("not enough parameters to option \"-") + opt->id + "\"");
 
-          option.push_back (ParsedOption (opt, argv+n+1));
-          n += opt->size();
+            option.push_back (ParsedOption (opt, argv+n+1));
+            n += opt->size();
+          }
+          else
+            argument.push_back (ParsedArgument (nullptr, nullptr, argv[n]));
         }
-        else
-          argument.push_back (ParsedArgument (nullptr, nullptr, argv[n]));
       }
     }
 
@@ -1122,10 +1153,10 @@ namespace MR
               count++;
 
           if (count < 1 && ! (OPTIONS[i][j].flags & Optional))
-            throw Exception (std::string ("mandatory option \"") + OPTIONS[i][j].id + "\" must be specified");
+            throw Exception (std::string ("mandatory option \"-") + OPTIONS[i][j].id + "\" must be specified");
 
           if (count > 1 && ! (OPTIONS[i][j].flags & AllowMultiple))
-            throw Exception (std::string ("multiple instances of option \"") +  OPTIONS[i][j].id + "\" are not allowed");
+            throw Exception (std::string ("multiple instances of option \"-") +  OPTIONS[i][j].id + "\" are not allowed");
         }
       }
 
@@ -1369,7 +1400,7 @@ namespace MR
         std::string msg = std::string ("unexpected value supplied for ");
         if (opt) msg += std::string ("option \"") + opt->id;
         else msg += std::string ("argument \"") + arg->id;
-        msg += std::string ("\" (valid choices are: ") + join (choices, ", ") + ")";
+        msg += std::string ("\" (received \"" + std::string(p) + "\"; valid choices are: ") + join (choices, ", ") + ")";
         throw Exception (msg);
       }
       assert (0);

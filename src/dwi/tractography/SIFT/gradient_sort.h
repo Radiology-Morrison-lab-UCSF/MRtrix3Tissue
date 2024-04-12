@@ -1,4 +1,4 @@
-/* Copyright (c) 2008-2019 the MRtrix3 contributors.
+/* Copyright (c) 2008-2021 the MRtrix3 contributors.
  *
  * This Source Code Form is subject to the terms of the Mozilla Public
  * License, v. 2.0. If a copy of the MPL was not distributed with this
@@ -100,12 +100,14 @@ namespace MR
           bool operator() (const VecItType& in)
           {
             candidates.insert (in);
+            initial_candidates.insert (in);
             return true;
           }
 
 
         private:
-          SetType candidates;
+          SetType candidates, initial_candidates;
+          VecItType end;
 
 
           class BlockSender

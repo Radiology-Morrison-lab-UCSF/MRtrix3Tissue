@@ -1,4 +1,4 @@
-/* Copyright (c) 2008-2019 the MRtrix3 contributors.
+/* Copyright (c) 2008-2021 the MRtrix3 contributors.
  *
  * This Source Code Form is subject to the terms of the Mozilla Public
  * License, v. 2.0. If a copy of the MPL was not distributed with this
@@ -42,8 +42,8 @@ namespace MR
               if (role == Qt::CheckStateRole) {
                 return items[index.row()] && items[index.row()]->show ? Qt::Checked : Qt::Unchecked;
               }
-              if (role != Qt::DisplayRole) return QVariant();
-              return items[index.row()] ? shorten (items[index.row()]->get_filename(), 35, 0).c_str() : "";
+              if (role != Qt::DisplayRole && role != Qt::ToolTipRole) return QVariant();
+              return items[index.row()] ? qstr (items[index.row()]->get_filename()) : QString();
             }
 
             bool setData (const QModelIndex& idx, const QVariant& value, int role) override {

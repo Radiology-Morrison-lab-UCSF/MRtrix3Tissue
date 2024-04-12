@@ -1,4 +1,4 @@
-/* Copyright (c) 2008-2019 the MRtrix3 contributors.
+/* Copyright (c) 2008-2021 the MRtrix3 contributors.
  *
  * This Source Code Form is subject to the terms of the Mozilla Public
  * License, v. 2.0. If a copy of the MPL was not distributed with this
@@ -16,6 +16,7 @@
 
 #include "app.h"
 #include "debug.h"
+#include "header.h"
 
 #include "file/path.h"
 #include "file/config.h"
@@ -49,7 +50,7 @@ namespace MR
       if (Path::is_file (sysconf_location)) {
         INFO (std::string("reading config file \"") + sysconf_location + "\"...");
         try {
-          KeyValue kv (sysconf_location);
+          KeyValue::Reader kv (sysconf_location);
           while (kv.next()) {
             config[kv.key()] = kv.value();
           }
@@ -63,7 +64,7 @@ namespace MR
       if (Path::is_file (path)) {
         INFO ("reading config file \"" + path + "\"...");
         try {
-          KeyValue kv (path);
+          KeyValue::Reader kv (path);
           while (kv.next()) {
             config[kv.key()] = kv.value();
           }
@@ -76,6 +77,12 @@ namespace MR
       auto opt = App::get_options ("config");
       for (const auto& keyval : opt)
         config[std::string(keyval[0])] = std::string(keyval[1]);
+
+      //CONF option: RealignTransform
+      //CONF default: 1 (true)
+      //CONF A boolean value to indicate whether all images should be realigned
+      //CONF to an approximately axial orientation at load.
+      Header::do_realign_transform = get_bool("RealignTransform", true);
     }
 
 

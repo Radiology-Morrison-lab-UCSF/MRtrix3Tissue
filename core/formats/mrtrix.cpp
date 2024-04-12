@@ -1,4 +1,4 @@
-/* Copyright (c) 2008-2019 the MRtrix3 contributors.
+/* Copyright (c) 2008-2021 the MRtrix3 contributors.
  *
  * This Source Code Form is subject to the terms of the Mozilla Public
  * License, v. 2.0. If a copy of the MPL was not distributed with this
@@ -42,7 +42,7 @@ namespace MR
       if (!Path::has_suffix (H.name(), ".mih") && !Path::has_suffix (H.name(), ".mif"))
         return std::unique_ptr<ImageIO::Base>();
 
-      File::KeyValue kv (H.name(), "mrtrix image");
+      File::KeyValue::Reader kv (H.name(), "mrtrix image");
 
       read_mrtrix_header (H, kv);
 
@@ -94,7 +94,7 @@ namespace MR
       int64_t offset = 0;
       out << "file: ";
       if (single_file) {
-        offset = out.tellp() + int64_t(18);
+        offset = int64_t(out.tellp()) + int64_t(18);
         offset += ((4 - (offset % 4)) % 4);
         out << ". " << offset << "\nEND\n";
       }
